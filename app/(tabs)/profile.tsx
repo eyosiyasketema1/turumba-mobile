@@ -12,7 +12,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
-  ArrowLeft,
   Mail,
   Phone,
   Building2,
@@ -22,6 +21,7 @@ import {
   ChevronRight,
   Shield,
   HelpCircle,
+  Check,
 } from 'lucide-react-native';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -53,18 +53,30 @@ export default function ProfileScreen() {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [messageAlerts, setMessageAlerts] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [language, setLanguage] = useState('English');
+
+  const LANGUAGES = [
+    { code: 'en', name: 'English', native: 'English' },
+    { code: 'am', name: 'Amharic', native: 'አማርኛ' },
+    { code: 'om', name: 'Afaan Oromoo', native: 'Afaan Oromoo' },
+    { code: 'ti', name: 'Tigrinya', native: 'ትግርኛ' },
+    { code: 'es', name: 'Spanish', native: 'Español' },
+    { code: 'ar', name: 'Arabic', native: 'العربية' },
+    { code: 'fr', name: 'French', native: 'Français' },
+    { code: 'pt', name: 'Portuguese', native: 'Português' },
+    { code: 'sw', name: 'Swahili', native: 'Kiswahili' },
+    { code: 'ko', name: 'Korean', native: '한국어' },
+    { code: 'zh', name: 'Chinese', native: '中文' },
+  ];
 
   const profile = MENTOR_PROFILE;
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={styles.backBtn}>
-          <ArrowLeft size={22} color={colors.foreground} />
-        </TouchableOpacity>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Profile</Text>
-        <View style={{ width: 30 }} />
       </View>
 
       <ScrollView
@@ -135,6 +147,16 @@ export default function ProfileScreen() {
                 thumbColor={messageAlerts ? colors.primary : '#f4f3f4'}
               />
             </View>
+            <TouchableOpacity
+              style={[styles.menuRow, { borderTopWidth: 0.5, borderTopColor: colors.border }]}
+              activeOpacity={0.6}
+              onPress={() => setShowLangPicker(true)}
+            >
+              <Globe size={16} color={colors.mutedForeground} />
+              <Text style={[styles.settingLabel, { color: colors.foreground }]}>Language</Text>
+              <Text style={[styles.langValue, { color: colors.mutedForeground }]}>{language}</Text>
+              <ChevronRight size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -171,6 +193,45 @@ export default function ProfileScreen() {
           Turumba v2.3.1 · Joined {profile.joinedDate}
         </Text>
       </ScrollView>
+
+      {/* Language Picker Modal */}
+      <Modal visible={showLangPicker} transparent animationType="fade" onRequestClose={() => setShowLangPicker(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowLangPicker(false)}>
+          <View style={[styles.langPickerCard, { backgroundColor: colors.card }]} onStartShouldSetResponder={() => true}>
+            <View style={styles.langPickerHeader}>
+              <Globe size={18} color={colors.primary} />
+              <Text style={[styles.langPickerTitle, { color: colors.foreground }]}>Select Language</Text>
+            </View>
+            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+              {LANGUAGES.map((lang) => {
+                const isActive = language === lang.name;
+                return (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={[styles.langRow, isActive && { backgroundColor: colors.primary + '10' }]}
+                    activeOpacity={0.6}
+                    onPress={() => { setLanguage(lang.name); setShowLangPicker(false); }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.langName, { color: isActive ? colors.primary : colors.foreground }, isActive && { fontFamily: 'DMSans_700Bold' }]}>
+                        {lang.name}
+                      </Text>
+                      <Text style={[styles.langNative, { color: isActive ? colors.primary : colors.mutedForeground }]}>
+                        {lang.native}
+                      </Text>
+                    </View>
+                    {isActive && (
+                      <View style={[styles.langCheckCircle, { backgroundColor: colors.primary }]}>
+                        <Check size={14} color="#fff" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Logout Confirmation Modal */}
       <Modal visible={showLogoutModal} transparent animationType="fade" onRequestClose={() => setShowLogoutModal(false)}>
@@ -214,18 +275,13 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    borderBottomWidth: 0.5,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
   },
-  backBtn: { padding: 4 },
   headerTitle: {
     fontFamily: 'DMSans_700Bold',
-    fontSize: 17,
-    flex: 1,
-    textAlign: 'center',
+    fontSize: 28,
+    letterSpacing: -0.5,
   },
 
   // Identity
@@ -404,4 +460,14 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 14,
   },
+
+  // Language
+  langValue: { fontFamily: 'DMSans_500Medium', fontSize: 13, marginRight: 4 },
+  langPickerCard: { width: '100%', maxWidth: 320, borderRadius: 20, padding: 8 },
+  langPickerHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14 },
+  langPickerTitle: { fontFamily: 'DMSans_700Bold', fontSize: 17 },
+  langRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12 },
+  langName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14 },
+  langNative: { fontFamily: 'DMSans_500Medium', fontSize: 12, marginTop: 2 },
+  langCheckCircle: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
 });

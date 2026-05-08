@@ -22,11 +22,11 @@ import {
   Flame,
   Star,
   Heart,
-  User,
   X,
   RefreshCw,
   BookOpen,
   AlertCircle,
+  Globe,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks/use-theme';
@@ -76,7 +76,7 @@ const NOTIFICATIONS: Notification[] = [
   { id: '3', type: 'assignment', title: 'New seeker assigned', body: 'Daniel Mekonnen has been matched to you as a mentor', time: '1h ago', read: false, route: '/seeker/2?tab=profile' },
   { id: '4', type: 'message', title: 'New message from Daniel Mekonnen', body: 'I finished reading the chapter you assigned', time: '1h ago', read: false, route: '/chat/2' },
   { id: '5', type: 'journey', title: 'Journey completed', body: 'Abebe Tadesse finished Bible 101 — all 10 lessons done', time: '2h ago', read: true, route: '/seeker/7?tab=journey' },
-  { id: '6', type: 'prayer', title: 'Prayer request', body: 'Rachel Thompson asked for prayer for her family situation', time: '3h ago', read: true, route: '/seeker/6?tab=notes' },
+  { id: '6', type: 'prayer', title: 'Prayer request', body: 'Rachel Thompson asked for prayer for her family situation', time: '3h ago', read: true, route: '/seeker/5?tab=notes' },
   { id: '7', type: 'system', title: 'Weekly report ready', body: 'Your seeker engagement summary for this week is available', time: '5h ago', read: true, route: null },
   { id: '8', type: 'milestone', title: 'Milestone reached', body: 'Sarah Johnson completed First Prayer milestone', time: '6h ago', read: true, route: '/seeker/1?tab=milestones' },
   { id: '9', type: 'assignment', title: 'Mentor reassignment', body: 'Fatima Ali has been reassigned to your care', time: '1d ago', read: true, route: '/seeker/8?tab=profile' },
@@ -104,6 +104,10 @@ export default function HomeScreen() {
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
   const bellRef = useRef<View>(null);
   const [bellBottom, setBellBottom] = useState(0);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [language, setLanguage] = useState('English');
+
+  const LANGUAGES = ['English', 'Amharic', 'Afaan Oromoo', 'Tigrinya', 'Spanish', 'Arabic', 'French'];
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -155,9 +159,9 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={[styles.headerIconBtn, { backgroundColor: colors.secondary }]}
             activeOpacity={0.7}
-            onPress={() => router.push('/(tabs)/profile')}
+            onPress={() => setShowLangPicker(true)}
           >
-            <User size={20} color={colors.foreground} />
+            <Globe size={20} color={colors.foreground} />
           </TouchableOpacity>
         </View>
       </View>
@@ -386,6 +390,37 @@ export default function HomeScreen() {
                 );
               })}
             </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Language Picker Modal */}
+      <Modal visible={showLangPicker} transparent animationType="fade" onRequestClose={() => setShowLangPicker(false)}>
+        <Pressable style={styles.langOverlay} onPress={() => setShowLangPicker(false)}>
+          <View style={[styles.langCard, { backgroundColor: colors.card }]} onStartShouldSetResponder={() => true}>
+            <View style={styles.langHeader}>
+              <Globe size={16} color={colors.primary} />
+              <Text style={[styles.langTitle, { color: colors.foreground }]}>Language</Text>
+            </View>
+            {LANGUAGES.map((lang) => (
+              <TouchableOpacity
+                key={lang}
+                style={[styles.langOption, language === lang && { backgroundColor: colors.primary + '10' }]}
+                activeOpacity={0.7}
+                onPress={() => { setLanguage(lang); setShowLangPicker(false); }}
+              >
+                <Text style={[
+                  styles.langOptionText,
+                  { color: language === lang ? colors.primary : colors.foreground },
+                  language === lang && { fontFamily: 'DMSans_700Bold' },
+                ]}>{lang}</Text>
+                {language === lang && (
+                  <View style={[styles.langCheck, { backgroundColor: colors.primary }]}>
+                    <CheckCircle size={14} color="#fff" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
           </View>
         </Pressable>
       </Modal>
@@ -649,4 +684,13 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
+
+  // Language Picker
+  langOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 40 },
+  langCard: { width: '100%', maxWidth: 300, borderRadius: 16, padding: 8 },
+  langHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
+  langTitle: { fontFamily: 'DMSans_700Bold', fontSize: 15 },
+  langOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10 },
+  langOptionText: { fontFamily: 'DMSans_600SemiBold', fontSize: 14 },
+  langCheck: { width: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
 });

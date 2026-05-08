@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,13 @@ import {
   Modal,
   Pressable,
   LayoutAnimation,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowLeft,
   MessageCircle,
-  MoreVertical,
   Calendar,
   BookOpen,
   Target,
@@ -104,6 +104,17 @@ const SEEKERS_DATA: Record<string, any> = {
       name: 'Foundations of Faith', stage: 'Active Journey', progress: 0.6,
       currentLesson: 4, totalLessons: 7, startedDate: 'Feb 1, 2026',
       source: 'WhatsApp', language: 'English', validation: 'Confirmed',
+      category: 'Discipleship',
+      description: 'Core beliefs, prayer, and Scripture basics for new believers',
+      lessons: [
+        { id: 'l1', title: 'Who Is God?', duration: '15 min', completedDate: 'Feb 3, 2026' },
+        { id: 'l2', title: 'Understanding Sin & Grace', duration: '20 min', completedDate: 'Feb 10, 2026' },
+        { id: 'l3', title: 'The Gift of Salvation', duration: '18 min', completedDate: 'Feb 18, 2026' },
+        { id: 'l4', title: 'Prayer Foundations', duration: '22 min', completedDate: null },
+        { id: 'l5', title: 'Reading the Bible', duration: '20 min', completedDate: null },
+        { id: 'l6', title: 'Living by Faith', duration: '25 min', completedDate: null },
+        { id: 'l7', title: 'Sharing Your Story', duration: '15 min', completedDate: null },
+      ],
     },
     milestones: [
       { id: '1', label: 'First Contact', state: 'done', date: 'Jan 15' },
@@ -163,6 +174,15 @@ const SEEKERS_DATA: Record<string, any> = {
       name: 'Prayer Basics', stage: 'Engaged', progress: 0.3,
       currentLesson: 2, totalLessons: 5, startedDate: 'Apr 1, 2026',
       source: 'Telegram', language: 'Amharic', validation: 'Pending',
+      category: 'Spiritual Growth',
+      description: 'Learning to communicate with God through different forms of prayer',
+      lessons: [
+        { id: 'l1', title: 'What Is Prayer?', duration: '12 min', completedDate: 'Apr 5, 2026' },
+        { id: 'l2', title: 'Types of Prayer', duration: '18 min', completedDate: null },
+        { id: 'l3', title: 'The Lord\'s Prayer', duration: '20 min', completedDate: null },
+        { id: 'l4', title: 'Praying with Scripture', duration: '15 min', completedDate: null },
+        { id: 'l5', title: 'Building a Prayer Life', duration: '22 min', completedDate: null },
+      ],
     },
     milestones: [
       { id: '1', label: 'First Contact', state: 'done', date: 'Mar 5' },
@@ -172,6 +192,379 @@ const SEEKERS_DATA: Record<string, any> = {
     ],
     notes: [{ id: '1', text: 'Daniel found us through a friend. Very curious about Christianity.', date: 'Mar 5, 2026', author: 'You' }],
     prayerRequests: [{ id: '1', text: 'Open heart to receive Christ', active: true }],
+  },
+  '3': {
+    name: 'Maria Garcia', initials: 'MG', color: '#f59e0b',
+    maturity: 'Growing', status: 'Active', platform: 'WhatsApp',
+    lastActive: '2h ago', online: false,
+    email: 'maria.g@email.com', phone: '+34 91 234 5678',
+    language: 'Spanish', location: 'Madrid, Spain', joinedDate: 'Feb 10, 2026',
+    preferredChannel: 'WhatsApp',
+    spiritualBackground: 'Raised Catholic, seeking deeper understanding of Bible and personal relationship with God',
+    engagementScore: 91, totalMessages: 203, groupCount: 3, notesCount: 5,
+    campaign: 'Summer Growth Initiative',
+    groups: ['Women of Faith', 'Spanish Speakers', 'Bible Study'],
+    tags: ['engaged', 'language-sensitive', 'consistent'],
+    mentor: { name: 'Sister Abeba', initials: 'SA', color: '#10b981', specialty: 'Seeker Care', experience: '3 years' },
+    aiClassification: {
+      confidence: 89,
+      needs: ['Discipleship structure', 'Community engagement', 'Language support'],
+      interests: [
+        { label: 'Bible Study', tone: 'positive' },
+        { label: 'Community', tone: 'positive' },
+        { label: 'Women\'s Ministry', tone: 'positive' },
+        { label: 'Prayer', tone: 'curious' },
+      ],
+    },
+    aiSummary: 'Maria is a Spanish-speaking believer with strong engagement in Bible study and community activities. She has consistent attendance and is showing signs of maturity in her faith journey. She would benefit from leadership development opportunities in her local Spanish-speaking community.',
+    intelligence: {
+      dropoutRisk: { value: 'Low', subtitle: '8% probability' },
+      learningPace: { value: 'Steady', subtitle: '~3 lessons/week' },
+      sentiment: { value: 'Positive', subtitle: 'Trending up' },
+      topicAffinity: { value: 'Bible Study', subtitle: 'Highest engagement' },
+    },
+    timelineEvents: [
+      { id: 't1', label: 'Completed intake form', date: 'Feb 10', color: '#2563eb' },
+      { id: 't2', label: 'Matched with Sister Abeba', date: 'Feb 12', color: '#10b981' },
+      { id: 't3', label: 'Enrolled in Bible 101', date: 'Feb 20', color: '#f59e0b' },
+      { id: 't4', label: 'Completed Lesson 5', date: 'Apr 15', color: '#10b981' },
+      { id: 't5', label: 'Joined women\'s group', date: 'Mar 1', color: '#ec4899' },
+    ],
+    currentJourney: {
+      name: 'Bible 101', stage: 'Active Journey', progress: 0.8,
+      currentLesson: 8, totalLessons: 10, startedDate: 'Feb 20, 2026',
+      source: 'WhatsApp', language: 'Spanish', validation: 'Confirmed',
+      category: 'Discipleship',
+      description: 'Overview of the Bible — Old and New Testament, how to read and study',
+      lessons: [
+        { id: 'l1', title: 'Introduction to the Bible', duration: '18 min', completedDate: 'Feb 22, 2026' },
+        { id: 'l2', title: 'The Old Testament Overview', duration: '22 min', completedDate: 'Mar 1, 2026' },
+        { id: 'l3', title: 'The New Testament Overview', duration: '20 min', completedDate: 'Mar 8, 2026' },
+        { id: 'l4', title: 'How to Read the Bible', duration: '18 min', completedDate: 'Mar 15, 2026' },
+        { id: 'l5', title: 'Key Bible Characters', duration: '25 min', completedDate: 'Mar 25, 2026' },
+        { id: 'l6', title: 'Psalms & Wisdom Literature', duration: '20 min', completedDate: 'Apr 5, 2026' },
+        { id: 'l7', title: 'The Prophets', duration: '22 min', completedDate: 'Apr 12, 2026' },
+        { id: 'l8', title: 'The Gospels', duration: '20 min', completedDate: null },
+        { id: 'l9', title: 'Acts & the Early Church', duration: '23 min', completedDate: null },
+        { id: 'l10', title: 'Applying Scripture Today', duration: '18 min', completedDate: null },
+      ],
+    },
+    milestones: [
+      { id: '1', label: 'First Contact', state: 'done', date: 'Feb 10' },
+      { id: '2', label: 'Started Journey', state: 'done', date: 'Feb 20' },
+      { id: '3', label: 'Lesson 5 Complete', state: 'done', date: 'Mar 25' },
+      { id: '4', label: 'Leadership Training', state: 'progress', date: '' },
+      { id: '5', label: 'Mentor Others', state: 'pending', date: '' },
+    ],
+    notes: [
+      { id: '1', text: 'Maria is very engaged and consistent with Bible study. She takes detailed notes and asks thoughtful questions.', date: 'Mar 1, 2026', author: 'You' },
+      { id: '2', text: 'She expressed interest in leading a small group discussion. Great leadership potential.', date: 'Apr 1, 2026', author: 'You' },
+    ],
+    prayerRequests: [
+      { id: '1', text: 'Wisdom and boldness to share faith with family in Spain', active: true },
+      { id: '2', text: 'Growth in discipleship and leadership abilities', active: true },
+    ],
+  },
+  '4': {
+    name: 'James Wilson', initials: 'JW', color: '#ef4444',
+    maturity: 'New Believer', status: 'Active', platform: 'WhatsApp',
+    lastActive: '3h ago', online: false,
+    email: 'james.w@email.com', phone: '+1 (555) 456-7890',
+    language: 'English', location: 'New York, USA', joinedDate: 'Apr 1, 2026',
+    preferredChannel: 'WhatsApp',
+    spiritualBackground: 'Non-religious background, recently committed to faith through campus ministry',
+    engagementScore: 65, totalMessages: 78, groupCount: 1, notesCount: 2,
+    campaign: 'Campus Ministry Outreach',
+    groups: ['Young Professionals'],
+    tags: ['young-professional', 'new-to-faith', 'responsive'],
+    mentor: { name: 'Brother Yonas', initials: 'BY', color: '#2563eb', specialty: 'Youth Ministry', experience: '4 years' },
+    aiClassification: {
+      confidence: 82,
+      needs: ['Foundational teaching', 'Peer support', 'Integration into faith community'],
+      interests: [
+        { label: 'Faith basics', tone: 'positive' },
+        { label: 'Prayer', tone: 'curious' },
+        { label: 'Peer community', tone: 'positive' },
+      ],
+    },
+    aiSummary: 'James is a new believer from a non-religious background who recently committed through campus ministry. He is enthusiastic but needs solid foundational teaching and integration into a supportive faith community. Connecting him with young professionals\' group is wise.',
+    intelligence: {
+      dropoutRisk: { value: 'Medium', subtitle: '28% probability' },
+      learningPace: { value: 'Moderate', subtitle: '~2 lessons/week' },
+      sentiment: { value: 'Positive', subtitle: 'Growing confidence' },
+      topicAffinity: { value: 'Foundations', subtitle: 'Seeks basics' },
+    },
+    timelineEvents: [
+      { id: 't1', label: 'Campus ministry event attended', date: 'Mar 28', color: '#2563eb' },
+      { id: 't2', label: 'Completed intake form', date: 'Apr 1', color: '#2563eb' },
+      { id: 't3', label: 'Matched with Brother Yonas', date: 'Apr 3', color: '#10b981' },
+      { id: 't4', label: 'Enrolled in Foundations of Faith', date: 'Apr 5', color: '#f59e0b' },
+    ],
+    currentJourney: {
+      name: 'Foundations of Faith', stage: 'Engaged', progress: 0.15,
+      currentLesson: 1, totalLessons: 7, startedDate: 'Apr 5, 2026',
+      source: 'WhatsApp', language: 'English', validation: 'Confirmed',
+      category: 'Discipleship',
+      description: 'Core beliefs, prayer, and Scripture basics for new believers',
+      lessons: [
+        { id: 'l1', title: 'Who Is God?', duration: '15 min', completedDate: null },
+        { id: 'l2', title: 'Understanding Sin & Grace', duration: '20 min', completedDate: null },
+        { id: 'l3', title: 'The Gift of Salvation', duration: '18 min', completedDate: null },
+        { id: 'l4', title: 'Prayer Foundations', duration: '22 min', completedDate: null },
+        { id: 'l5', title: 'Reading the Bible', duration: '20 min', completedDate: null },
+        { id: 'l6', title: 'Living by Faith', duration: '25 min', completedDate: null },
+        { id: 'l7', title: 'Sharing Your Story', duration: '15 min', completedDate: null },
+      ],
+    },
+    milestones: [
+      { id: '1', label: 'First Contact', state: 'done', date: 'Mar 28' },
+      { id: '2', label: 'Started Journey', state: 'done', date: 'Apr 5' },
+      { id: '3', label: 'Prayer Life', state: 'progress', date: '' },
+      { id: '4', label: 'First Witnessing', state: 'pending', date: '' },
+    ],
+    notes: [
+      { id: '1', text: 'James is very new to the faith but shows genuine enthusiasm. Needs patient mentoring on basics.', date: 'Apr 5, 2026', author: 'You' },
+    ],
+    prayerRequests: [
+      { id: '1', text: 'Solid foundation in faith and consistent prayer life', active: true },
+      { id: '2', text: 'Opportunity to share faith with friends at work', active: true },
+    ],
+  },
+  '5': {
+    name: 'Rachel Thompson', initials: 'RT', color: '#06b6d4',
+    maturity: 'Interested', status: 'Pending', platform: 'Telegram',
+    lastActive: '5h ago', online: true,
+    email: 'rachel.t@email.com', phone: '+44 20 1234 5678',
+    language: 'English', location: 'London, UK', joinedDate: 'Apr 15, 2026',
+    preferredChannel: 'Telegram',
+    spiritualBackground: 'Agnostic background, exploring Christianity through a friend',
+    engagementScore: 40, totalMessages: 34, groupCount: 0, notesCount: 1,
+    campaign: 'Friend Referral Program',
+    groups: [],
+    tags: ['exploring', 'skeptical', 'intellectual'],
+    mentor: { name: 'Deacon Martha', initials: 'DM', color: '#ec4899', specialty: 'Women\'s Ministry', experience: '7 years' },
+    aiClassification: {
+      confidence: 76,
+      needs: ['Intellectual answers', 'Safe space to question', 'Evidence-based approach'],
+      interests: [
+        { label: 'Philosophy', tone: 'curious' },
+        { label: 'Christianity basics', tone: 'neutral' },
+        { label: 'Evidence for faith', tone: 'curious' },
+      ],
+    },
+    aiSummary: 'Rachel is exploring Christianity from an agnostic background with an intellectual and questioning approach. She needs thoughtful answers to her doubts and a safe space where skepticism is welcomed. Building trust and providing reasonable, evidence-based explanations will be key.',
+    intelligence: {
+      dropoutRisk: { value: 'High', subtitle: '52% probability' },
+      learningPace: { value: 'Variable', subtitle: 'Depends on answers' },
+      sentiment: { value: 'Neutral', subtitle: 'Cautiously open' },
+      topicAffinity: { value: 'Apologetics', subtitle: 'Seeks reasons' },
+    },
+    timelineEvents: [
+      { id: 't1', label: 'Referred by friend', date: 'Apr 13', color: '#2563eb' },
+      { id: 't2', label: 'Completed intake form', date: 'Apr 15', color: '#2563eb' },
+      { id: 't3', label: 'First mentoring conversation', date: 'Apr 18', color: '#8b5cf6' },
+    ],
+    currentJourney: null,
+    milestones: [
+      { id: '1', label: 'First Contact', state: 'done', date: 'Apr 13' },
+      { id: '2', label: 'First Conversation', state: 'done', date: 'Apr 18' },
+      { id: '3', label: 'Begin Journey', state: 'pending', date: '' },
+      { id: '4', label: 'Initial Decision', state: 'pending', date: '' },
+    ],
+    notes: [
+      { id: '1', text: 'Rachel has many questions about faith and evidence. Approached with intellectual curiosity rather than defensiveness.', date: 'Apr 18, 2026', author: 'You' },
+    ],
+    prayerRequests: [
+      { id: '1', text: 'Open mind and heart to truth about God', active: true },
+      { id: '2', text: 'Clarity in her spiritual search', active: true },
+    ],
+  },
+  '6': {
+    name: 'David Kim', initials: 'DK', color: '#ec4899',
+    maturity: 'Growing', status: 'Active', platform: 'WhatsApp',
+    lastActive: '1d ago', online: false,
+    email: 'david.k@email.com', phone: '+82 2 1234 5678',
+    language: 'Korean', location: 'Seoul, South Korea', joinedDate: 'Feb 28, 2026',
+    preferredChannel: 'WhatsApp',
+    spiritualBackground: 'Buddhist background, experiencing renewed interest in spirituality and community',
+    engagementScore: 78, totalMessages: 145, groupCount: 2, notesCount: 4,
+    campaign: 'Community Outreach Initiative',
+    groups: ['Community Group', 'Prayer Circle'],
+    tags: ['culturally-sensitive', 'community-focused', 'consistent'],
+    mentor: { name: 'Pastor Samuel', initials: 'PS', color: '#f59e0b', specialty: 'Discipleship', experience: '10 years' },
+    aiClassification: {
+      confidence: 85,
+      needs: ['Cultural bridge-building', 'Community integration', 'Identity affirmation'],
+      interests: [
+        { label: 'Community', tone: 'positive' },
+        { label: 'Fellowship', tone: 'positive' },
+        { label: 'Service', tone: 'positive' },
+        { label: 'Prayer', tone: 'curious' },
+      ],
+    },
+    aiSummary: 'David is a growing believer from a Buddhist background who deeply values community and fellowship. He shows strong engagement in group settings and is responding well to the emphasis on serving together. His cultural background should be honored as he continues growing in faith.',
+    intelligence: {
+      dropoutRisk: { value: 'Low', subtitle: '15% probability' },
+      learningPace: { value: 'Steady', subtitle: '~2.5 lessons/week' },
+      sentiment: { value: 'Positive', subtitle: 'Stable' },
+      topicAffinity: { value: 'Community', subtitle: 'Highest engagement' },
+    },
+    timelineEvents: [
+      { id: 't1', label: 'Community event attended', date: 'Feb 25', color: '#2563eb' },
+      { id: 't2', label: 'Completed intake form', date: 'Feb 28', color: '#2563eb' },
+      { id: 't3', label: 'Matched with Pastor Samuel', date: 'Mar 2', color: '#10b981' },
+      { id: 't4', label: 'Enrolled in Finding Community', date: 'Mar 10', color: '#f59e0b' },
+      { id: 't5', label: 'Joined prayer circle', date: 'Mar 25', color: '#ec4899' },
+    ],
+    currentJourney: {
+      name: 'Finding Community', stage: 'Active Journey', progress: 0.5,
+      currentLesson: 3, totalLessons: 6, startedDate: 'Mar 10, 2026',
+      source: 'WhatsApp', language: 'Korean', validation: 'Confirmed',
+      category: 'Community',
+      description: 'The importance of fellowship and connecting with other believers',
+      lessons: [
+        { id: 'l1', title: 'Why Community Matters', duration: '16 min', completedDate: 'Mar 12, 2026' },
+        { id: 'l2', title: 'Finding Your Place', duration: '18 min', completedDate: 'Mar 20, 2026' },
+        { id: 'l3', title: 'Building Authentic Relationships', duration: '20 min', completedDate: null },
+        { id: 'l4', title: 'Serving Together', duration: '18 min', completedDate: null },
+        { id: 'l5', title: 'Growing in Fellowship', duration: '19 min', completedDate: null },
+        { id: 'l6', title: 'Being the Church', duration: '21 min', completedDate: null },
+      ],
+    },
+    milestones: [
+      { id: '1', label: 'First Contact', state: 'done', date: 'Feb 25' },
+      { id: '2', label: 'Started Journey', state: 'done', date: 'Mar 10' },
+      { id: '3', label: 'Leadership Development', state: 'progress', date: '' },
+      { id: '4', label: 'Mentoring Others', state: 'pending', date: '' },
+    ],
+    notes: [
+      { id: '1', text: 'David connects deeply with community-oriented content. His Buddhist background gives him unique perspective on spiritual disciplines.', date: 'Mar 10, 2026', author: 'You' },
+      { id: '2', text: 'He is actively serving in prayer circle and showing leadership qualities. Ready for next level discipleship.', date: 'Apr 10, 2026', author: 'You' },
+    ],
+    prayerRequests: [
+      { id: '1', text: 'Deepening faith and understanding of Christ', active: true },
+      { id: '2', text: 'Wisdom to serve and lead others in community', active: true },
+    ],
+  },
+  '7': {
+    name: 'Abebe Tadesse', initials: 'AT', color: '#8b5cf6',
+    maturity: 'Mature', status: 'Active', platform: 'Telegram',
+    lastActive: '2d ago', online: false,
+    email: 'abebe.t@email.com', phone: '+251 91 567 8901',
+    language: 'Amharic', location: 'Addis Ababa, Ethiopia', joinedDate: 'Jan 20, 2026',
+    preferredChannel: 'Telegram',
+    spiritualBackground: 'Strong Orthodox Christian heritage, experiencing renewal and deeper personal faith',
+    engagementScore: 95, totalMessages: 267, groupCount: 4, notesCount: 8,
+    campaign: 'Renewal Initiative',
+    groups: ['Mature Believers', 'Prayer Warriors', 'Bible Study Leaders', 'Mentors Circle'],
+    tags: ['mature-believer', 'leader', 'mentor', 'consistent'],
+    mentor: { name: 'Sister Rahel', initials: 'SR', color: '#06b6d4', specialty: 'Prayer Ministry', experience: '6 years' },
+    aiClassification: {
+      confidence: 94,
+      needs: ['Leadership development', 'Mentoring opportunities', 'Strategic ministry role'],
+      interests: [
+        { label: 'Prayer Ministry', tone: 'positive' },
+        { label: 'Discipleship', tone: 'positive' },
+        { label: 'Bible Teaching', tone: 'positive' },
+        { label: 'Community Leadership', tone: 'positive' },
+      ],
+    },
+    aiSummary: 'Abebe is a mature, highly engaged believer with deep roots in Ethiopian Orthodox tradition who is experiencing spiritual renewal. He has completed comprehensive biblical education and demonstrates strong leadership qualities. He is ready and equipped to mentor others and play a strategic role in ministry.',
+    intelligence: {
+      dropoutRisk: { value: 'Very Low', subtitle: '2% probability' },
+      learningPace: { value: 'Advanced', subtitle: 'Mentors others' },
+      sentiment: { value: 'Very Positive', subtitle: 'Trending up' },
+      topicAffinity: { value: 'Prayer & Leadership', subtitle: 'Multiple strengths' },
+    },
+    timelineEvents: [
+      { id: 't1', label: 'Committed to faith renewal', date: 'Jan 20', color: '#2563eb' },
+      { id: 't2', label: 'Completed intake form', date: 'Jan 22', color: '#2563eb' },
+      { id: 't3', label: 'Matched with Sister Rahel', date: 'Jan 25', color: '#10b981' },
+      { id: 't4', label: 'Enrolled in Bible 101', date: 'Feb 1', color: '#f59e0b' },
+      { id: 't5', label: 'Completed Bible 101', date: 'Apr 30', color: '#10b981' },
+      { id: 't6', label: 'Became prayer ministry leader', date: 'Apr 15', color: '#ec4899' },
+    ],
+    currentJourney: {
+      name: 'Bible 101', stage: 'Decision', progress: 1.0,
+      currentLesson: 11, totalLessons: 10, startedDate: 'Feb 1, 2026',
+      source: 'Telegram', language: 'Amharic', validation: 'Confirmed',
+      category: 'Discipleship',
+      description: 'Overview of the Bible — Old and New Testament, how to read and study',
+      lessons: [
+        { id: 'l1', title: 'Introduction to the Bible', duration: '18 min', completedDate: 'Feb 3, 2026' },
+        { id: 'l2', title: 'The Old Testament Overview', duration: '22 min', completedDate: 'Feb 8, 2026' },
+        { id: 'l3', title: 'The New Testament Overview', duration: '20 min', completedDate: 'Feb 15, 2026' },
+        { id: 'l4', title: 'How to Read the Bible', duration: '18 min', completedDate: 'Feb 22, 2026' },
+        { id: 'l5', title: 'Key Bible Characters', duration: '25 min', completedDate: 'Mar 3, 2026' },
+        { id: 'l6', title: 'Psalms & Wisdom Literature', duration: '20 min', completedDate: 'Mar 15, 2026' },
+        { id: 'l7', title: 'The Prophets', duration: '22 min', completedDate: 'Mar 25, 2026' },
+        { id: 'l8', title: 'The Gospels', duration: '20 min', completedDate: 'Apr 8, 2026' },
+        { id: 'l9', title: 'Acts & the Early Church', duration: '23 min', completedDate: 'Apr 20, 2026' },
+        { id: 'l10', title: 'Applying Scripture Today', duration: '18 min', completedDate: 'Apr 30, 2026' },
+      ],
+    },
+    milestones: [
+      { id: '1', label: 'First Contact', state: 'done', date: 'Jan 20' },
+      { id: '2', label: 'Started Journey', state: 'done', date: 'Feb 1' },
+      { id: '3', label: 'Completed Journey', state: 'done', date: 'Apr 30' },
+      { id: '4', label: 'Prayer Leader', state: 'done', date: 'Apr 15' },
+      { id: '5', label: 'Mentor Others', state: 'progress', date: '' },
+    ],
+    notes: [
+      { id: '1', text: 'Abebe is an exemplary mature believer. His deep knowledge and spiritual commitment make him ideal for leadership roles.', date: 'Feb 10, 2026', author: 'You' },
+      { id: '2', text: 'Successfully completed all 10 lessons of Bible 101. Now actively mentoring 3 newer believers.', date: 'May 1, 2026', author: 'You' },
+    ],
+    prayerRequests: [
+      { id: '1', text: 'Wisdom and anointing for prayer ministry leadership', active: true },
+      { id: '2', text: 'Ability to mentor and equip younger believers effectively', active: true },
+    ],
+  },
+  '8': {
+    name: 'Fatima Ali', initials: 'FA', color: '#d97706',
+    maturity: 'Pre-Seeker', status: 'Active', platform: 'WhatsApp',
+    lastActive: '3d ago', online: false,
+    email: 'fatima.a@email.com', phone: '+966 12 345 6789',
+    language: 'Arabic', location: 'Jeddah, Saudi Arabia', joinedDate: 'Apr 22, 2026',
+    preferredChannel: 'WhatsApp',
+    spiritualBackground: 'Muslim background, first time learning about Christianity',
+    engagementScore: 28, totalMessages: 12, groupCount: 0, notesCount: 1,
+    campaign: 'International Outreach',
+    groups: [],
+    tags: ['new-contact', 'cultural-boundary', 'sensitive'],
+    mentor: { name: 'Pastor Michael', initials: 'PM', color: '#4f46e5', specialty: 'New Believer Care', experience: '5 years' },
+    aiClassification: {
+      confidence: 71,
+      needs: ['Cultural sensitivity', 'Foundational introduction', 'Safe exploration space'],
+      interests: [
+        { label: 'Christianity basics', tone: 'curious' },
+        { label: 'Jesus', tone: 'curious' },
+      ],
+    },
+    aiSummary: 'Fatima is in the earliest stage of interest in Christianity, coming from a Muslim background in a sensitive context. She requires patience, cultural sensitivity, and careful foundational introduction to Christianity. Building trust and providing safe space for exploration is paramount.',
+    intelligence: {
+      dropoutRisk: { value: 'High', subtitle: '68% probability' },
+      learningPace: { value: 'Slow', subtitle: 'Cautious exploration' },
+      sentiment: { value: 'Cautious', subtitle: 'Initial interest' },
+      topicAffinity: { value: 'Jesus & Gospel', subtitle: 'Primary curiosity' },
+    },
+    timelineEvents: [
+      { id: 't1', label: 'Completed intake form', date: 'Apr 22', color: '#2563eb' },
+      { id: 't2', label: 'Matched with Pastor Michael', date: 'Apr 24', color: '#10b981' },
+    ],
+    currentJourney: null,
+    milestones: [
+      { id: '1', label: 'First Contact', state: 'done', date: 'Apr 22' },
+      { id: '2', label: 'Initial Conversation', state: 'progress', date: '' },
+      { id: '3', label: 'Building Trust', state: 'pending', date: '' },
+      { id: '4', label: 'Begin Learning', state: 'pending', date: '' },
+    ],
+    notes: [
+      { id: '1', text: 'Fatima is very new and cautious. Requires sensitive, patient approach. She is curious about Jesus and wants to learn more.', date: 'Apr 24, 2026', author: 'You' },
+    ],
+    prayerRequests: [
+      { id: '1', text: 'Courage to explore faith in difficult context', active: true },
+      { id: '2', text: 'Protection and wisdom as she learns about Christ', active: true },
+    ],
   },
 };
 
@@ -202,7 +595,10 @@ export default function SeekerDetailScreen() {
   const [showMaturityPicker, setShowMaturityPicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showReassignForm, setShowReassignForm] = useState(false);
+  const [reassignSubmitted, setReassignSubmitted] = useState(false);
   const [reassignReason, setReassignReason] = useState('');
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as const });
+  const toastAnim = useRef(new Animated.Value(0)).current;
 
   const mColor = MaturityColors[maturity] || '#94a3b8';
   const sColor = STATUS_COLORS[status] || '#94a3b8';
@@ -217,6 +613,24 @@ export default function SeekerDetailScreen() {
     { key: 'milestones' as const, label: 'Milestones' },
   ];
 
+  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
+    setToast({ visible: true, message, type });
+    Animated.sequence([
+      Animated.timing(toastAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.delay(2500),
+      Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(() => setToast({ visible: false, message: '', type: 'success' }));
+  };
+
+  const handleReassign = () => {
+    if (!reassignReason.trim()) return;
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowReassignForm(false);
+    setReassignSubmitted(true);
+    setReassignReason('');
+    showToast('Reassignment request submitted');
+  };
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       {/* ─── Header ────────────────────────────────────────────── */}
@@ -225,9 +639,6 @@ export default function SeekerDetailScreen() {
           <ArrowLeft size={22} color={colors.foreground} />
         </TouchableOpacity>
         <View style={{ flex: 1 }} />
-        <TouchableOpacity style={[styles.headerActionBtn, { backgroundColor: colors.secondary }]} activeOpacity={0.7}>
-          <MoreVertical size={18} color={colors.foreground} />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -412,7 +823,12 @@ export default function SeekerDetailScreen() {
                 <Text style={[styles.emptyLine, { color: colors.mutedForeground }]}>No mentor assigned</Text>
               )}
 
-              {!showReassignForm ? (
+              {reassignSubmitted ? (
+                <View style={[styles.reassignPending, { backgroundColor: '#fffbeb', borderColor: '#f59e0b25' }]}>
+                  <Clock size={14} color="#f59e0b" />
+                  <Text style={styles.reassignPendingText}>Your request is submitted. Waiting for admin approval.</Text>
+                </View>
+              ) : !showReassignForm ? (
                 <TouchableOpacity
                   style={[styles.dashedBtn, { borderColor: colors.border }]}
                   onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setShowReassignForm(true); }}
@@ -430,6 +846,7 @@ export default function SeekerDetailScreen() {
                     value={reassignReason}
                     onChangeText={setReassignReason}
                     multiline
+                    autoFocus
                   />
                   <View style={styles.inlineActions}>
                     <TouchableOpacity onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setShowReassignForm(false); setReassignReason(''); }} activeOpacity={0.7}>
@@ -438,9 +855,10 @@ export default function SeekerDetailScreen() {
                     <TouchableOpacity
                       style={[styles.inlineSubmit, { backgroundColor: reassignReason.trim() ? colors.primary : colors.border }]}
                       disabled={!reassignReason.trim()}
+                      onPress={handleReassign}
                       activeOpacity={0.7}
                     >
-                      <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 12, color: reassignReason.trim() ? '#fff' : colors.mutedForeground }}>Submit</Text>
+                      <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 12, color: reassignReason.trim() ? '#fff' : colors.mutedForeground }}>Submit Request</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -508,7 +926,7 @@ export default function SeekerDetailScreen() {
                     <View style={styles.progressTop}>
                       <Text style={[styles.progressLbl, { color: colors.mutedForeground }]}>Lesson Progress</Text>
                       <Text style={[styles.progressNum, { color: colors.foreground }]}>
-                        {seeker.currentJourney.currentLesson}
+                        {Math.min(seeker.currentJourney.currentLesson, seeker.currentJourney.totalLessons)}
                         <Text style={{ color: colors.mutedForeground, fontFamily: 'DMSans_500Medium' }}> / {seeker.currentJourney.totalLessons}</Text>
                       </Text>
                     </View>
@@ -521,6 +939,100 @@ export default function SeekerDetailScreen() {
                   </View>
                 </View>
 
+                {/* Journey Description + Category */}
+                {seeker.currentJourney.description && (
+                  <View style={styles.card}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <BookOpen size={14} color={colors.primary} />
+                      <Text style={[styles.cardTitle, { color: colors.foreground }]}>About This Journey</Text>
+                      {seeker.currentJourney.category && (
+                        <View style={[styles.categoryBadge, { backgroundColor: colors.primary + '12' }]}>
+                          <Text style={[styles.categoryBadgeText, { color: colors.primary }]}>{seeker.currentJourney.category}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.journeyDesc, { color: colors.mutedForeground }]}>{seeker.currentJourney.description}</Text>
+                  </View>
+                )}
+
+                {/* Lessons List */}
+                {seeker.currentJourney.lessons && seeker.currentJourney.lessons.length > 0 && (
+                  <View style={styles.card}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Target size={14} color={colors.primary} />
+                        <Text style={[styles.cardTitle, { color: colors.foreground }]}>Lessons</Text>
+                      </View>
+                      <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: colors.mutedForeground }}>
+                        {Math.min(seeker.currentJourney.currentLesson - 1, seeker.currentJourney.totalLessons)} of {seeker.currentJourney.totalLessons} done
+                      </Text>
+                    </View>
+                    {seeker.currentJourney.lessons.map((lesson: any, idx: number) => {
+                      const lessonNum = idx + 1;
+                      const isCompleted = lessonNum < seeker.currentJourney.currentLesson;
+                      const isCurrent = lessonNum === seeker.currentJourney.currentLesson;
+                      const isUpcoming = lessonNum > seeker.currentJourney.currentLesson;
+                      const isLast = idx === seeker.currentJourney.lessons.length - 1;
+
+                      return (
+                        <View key={lesson.id}>
+                          <View style={[
+                            styles.lessonRow,
+                            isCurrent && { backgroundColor: colors.primary + '08', borderRadius: 10, marginHorizontal: -8, paddingHorizontal: 8 },
+                          ]}>
+                            {/* Status icon */}
+                            <View style={[
+                              styles.lessonIcon,
+                              {
+                                backgroundColor: isCompleted ? '#10b981' : isCurrent ? colors.primary : colors.secondary,
+                                borderColor: isCompleted ? '#10b981' : isCurrent ? colors.primary : colors.border,
+                              },
+                            ]}>
+                              {isCompleted ? (
+                                <CheckCircle2 size={12} color="#fff" />
+                              ) : (
+                                <Text style={[styles.lessonNum, { color: isCurrent ? '#fff' : colors.mutedForeground }]}>{lessonNum}</Text>
+                              )}
+                            </View>
+
+                            {/* Lesson info */}
+                            <View style={styles.lessonInfo}>
+                              <Text style={[
+                                styles.lessonTitle,
+                                { color: isUpcoming ? colors.mutedForeground : colors.foreground },
+                                isCurrent && { fontFamily: 'DMSans_700Bold' },
+                              ]} numberOfLines={1}>
+                                {lesson.title}
+                              </Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Clock size={10} color={colors.mutedForeground} />
+                                <Text style={[styles.lessonMeta, { color: colors.mutedForeground }]}>{lesson.duration}</Text>
+                                {lesson.completedDate && (
+                                  <>
+                                    <Text style={{ color: colors.border, fontSize: 10 }}>·</Text>
+                                    <Text style={[styles.lessonMeta, { color: '#10b981' }]}>{lesson.completedDate}</Text>
+                                  </>
+                                )}
+                              </View>
+                            </View>
+
+                            {/* Status badge */}
+                            {isCurrent && (
+                              <View style={[styles.currentBadge, { backgroundColor: colors.primary + '15' }]}>
+                                <Text style={[styles.currentBadgeText, { color: colors.primary }]}>Current</Text>
+                              </View>
+                            )}
+                            {isCompleted && (
+                              <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: '#10b981' }}>Done</Text>
+                            )}
+                          </View>
+                          {!isLast && <View style={[styles.lessonDivider, { backgroundColor: colors.border }]} />}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
                 {/* Details — clean grid */}
                 <View style={styles.card}>
                   <Text style={[styles.cardTitle, { color: colors.foreground, marginBottom: 12 }]}>Details</Text>
@@ -528,6 +1040,7 @@ export default function SeekerDetailScreen() {
                     { key: 'Source', val: seeker.currentJourney.source },
                     { key: 'Language', val: seeker.currentJourney.language },
                     { key: 'Started', val: seeker.currentJourney.startedDate },
+                    { key: 'Category', val: seeker.currentJourney.category || '—' },
                   ].map((row, i) => (
                     <View key={row.key} style={[styles.kvRow, i > 0 && { borderTopWidth: 0.5, borderTopColor: colors.border }]}>
                       <Text style={[styles.kvKey, { color: colors.mutedForeground }]}>{row.key}</Text>
@@ -564,7 +1077,7 @@ export default function SeekerDetailScreen() {
                                 borderColor: past || current ? colors.primary : colors.border,
                               },
                             ]}>
-                              {past ? <CheckCircle2 size={11} color={colors.primary} /> :
+                              {past ? <CheckCircle2 size={16} color={colors.primary} /> :
                                 <Text style={[styles.pipeNum, { color: current ? '#fff' : colors.mutedForeground }]}>{idx + 1}</Text>
                               }
                             </View>
@@ -860,6 +1373,20 @@ export default function SeekerDetailScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      {/* ─── Toast Notification ──────────────────────────────────── */}
+      {toast.visible && (
+        <Animated.View style={[styles.toastContainer, {
+          transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [80, 0] }) }],
+          opacity: toastAnim,
+          bottom: insets.bottom + 20,
+        }]}>
+          <View style={[styles.toast, { backgroundColor: toast.type === 'success' ? '#10b981' : '#2563eb' }]}>
+            <CheckCircle2 size={16} color="#fff" />
+            <Text style={styles.toastText}>{toast.message}</Text>
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -956,6 +1483,20 @@ const styles = StyleSheet.create({
 
   // Journey
   journeyTitle: { fontFamily: 'DMSans_700Bold', fontSize: 17, flex: 1, marginRight: 8 },
+  journeyDesc: { fontFamily: 'DMSans_500Medium', fontSize: 13, lineHeight: 20 },
+  categoryBadge: { marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 9999 },
+  categoryBadgeText: { fontFamily: 'DMSans_600SemiBold', fontSize: 10, letterSpacing: 0.3 },
+
+  // Lessons
+  lessonRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  lessonIcon: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1.5 },
+  lessonNum: { fontFamily: 'DMSans_700Bold', fontSize: 11 },
+  lessonInfo: { flex: 1, gap: 3 },
+  lessonTitle: { fontFamily: 'DMSans_600SemiBold', fontSize: 13 },
+  lessonMeta: { fontFamily: 'DMSans_500Medium', fontSize: 11 },
+  lessonDivider: { height: 0.5, marginLeft: 40 },
+  currentBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 9999 },
+  currentBadgeText: { fontFamily: 'DMSans_700Bold', fontSize: 10 },
   stagePill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 9999 },
   stagePillText: { fontFamily: 'DMSans_700Bold', fontSize: 11 },
   progressBlock: { marginTop: 4 },
@@ -968,13 +1509,13 @@ const styles = StyleSheet.create({
   validBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 9999 },
 
   // Pipeline
-  pipeline: { flexDirection: 'row' },
+  pipeline: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 4 },
   pipeStep: { flex: 1, alignItems: 'center' },
-  pipeRow: { flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'center', marginBottom: 8 },
-  pipeCircle: { width: 26, height: 26, borderRadius: 13, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
-  pipeNum: { fontFamily: 'DMSans_700Bold', fontSize: 11 },
-  pipeLine: { flex: 1, height: 2 },
-  pipeLbl: { fontFamily: 'DMSans_500Medium', fontSize: 10, textAlign: 'center' },
+  pipeRow: { flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'center', marginBottom: 10 },
+  pipeCircle: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
+  pipeNum: { fontFamily: 'DMSans_700Bold', fontSize: 13 },
+  pipeLine: { flex: 1, height: 3, borderRadius: 1.5 },
+  pipeLbl: { fontFamily: 'DMSans_500Medium', fontSize: 12, textAlign: 'center', paddingHorizontal: 2 },
 
   // Milestones — timeline
   msRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 0 },
@@ -1049,4 +1590,14 @@ const styles = StyleSheet.create({
   intelLabel: { fontFamily: 'DMSans_500Medium', fontSize: 11 },
   intelValue: { fontFamily: 'DMSans_700Bold', fontSize: 16 },
   intelSub: { fontFamily: 'DMSans_500Medium', fontSize: 11 },
+
+  // Toast
+  reassignPending: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1 },
+  reassignPendingText: { fontFamily: 'DMSans_500Medium', fontSize: 13, color: '#92400e', flex: 1, lineHeight: 18 },
+
+  toastContainer: { position: 'absolute', left: 20, right: 20, alignItems: 'center', zIndex: 999 },
+  toast: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12 },
+  toastText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#fff', flex: 1 },
+
+  // Mentor selection
 });
