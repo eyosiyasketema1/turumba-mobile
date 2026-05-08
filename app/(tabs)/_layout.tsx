@@ -1,0 +1,95 @@
+import { Tabs } from 'expo-router';
+import React from 'react';
+import { Platform } from 'react-native';
+import { Home, MessageCircle, Users, Route } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { HapticTab } from '@/components/haptic-tab';
+import { Colors } from '@/constants/theme';
+
+export default function TabLayout() {
+  const colors = Colors.light;
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: colors.tint,
+        tabBarInactiveTintColor: colors.tabIconDefault,
+        tabBarStyle: {
+          position: 'absolute',
+          borderTopWidth: 0,
+          paddingTop: 8,
+          paddingBottom: Math.max(insets.bottom, 12) + 8,
+          height: 60 + Math.max(insets.bottom, 12) + 8,
+          elevation: 0,
+          backgroundColor: '#ffffff',
+        },
+        tabBarLabelStyle: {
+          fontFamily: 'DMSans_700Bold',
+          fontSize: 12,
+        },
+        headerStyle: {
+          backgroundColor: colors.background,
+        },
+        headerTitleStyle: {
+          fontFamily: 'DMSans_700Bold',
+          fontSize: 18,
+          color: colors.foreground,
+        },
+        headerShadowVisible: false,
+        tabBarButton: HapticTab,
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Home',
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => <Home size={22} color={color} fill={focused ? color : 'none'} />,
+        }}
+      />
+      <Tabs.Screen
+        name="chats"
+        options={{
+          title: 'Chats',
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => <MessageCircle size={22} color={color} fill={focused ? color : 'none'} />,
+          tabBarBadge: 3,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.primary,
+            color: '#fff',
+            fontFamily: 'DMSans_600SemiBold',
+            fontSize: 10,
+            minWidth: 18,
+            height: 18,
+            lineHeight: 18,
+          },
+        }}
+      />
+      <Tabs.Screen
+        name="seekers"
+        options={{
+          title: 'Seekers',
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => <Users size={22} color={color} fill={focused ? color : 'none'} />,
+        }}
+      />
+      <Tabs.Screen
+        name="journeys"
+        options={{
+          title: 'Journeys',
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => <Route size={22} color={color} fill={focused ? color : 'none'} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+    </Tabs>
+  );
+}
