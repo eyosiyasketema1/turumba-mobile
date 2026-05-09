@@ -17,7 +17,6 @@ import {
   Animated,
   Image as RNImage,
   Alert,
-  Clipboard,
   PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,8 +49,10 @@ import {
   Pause,
   CheckSquare,
   Ban,
+  UserPlus,
 } from 'lucide-react-native';
 import { useTheme } from '@/hooks/use-theme';
+import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Audio } from 'expo-av';
@@ -436,7 +437,8 @@ export default function ChatDetailScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const { id, claimed: claimedParam, name: nameParam, initials: initialsParam, color: colorParam, maturity: maturityParam } = useLocalSearchParams();
+  const [isClaimed, setIsClaimed] = useState(claimedParam !== '0');
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState(MESSAGES);
   const [isRecording, setIsRecording] = useState(false);
@@ -560,7 +562,7 @@ export default function ChatDetailScreen() {
     if (!selectedMessage) return;
     switch (actionId) {
       case 'copy':
-        Clipboard.setString(selectedMessage.text);
+        Clipboard.setStringAsync(selectedMessage.text);
         setMenuVisible(false);
         setSelectedMessage(null);
         showToast('Message copied');
@@ -686,7 +688,7 @@ export default function ChatDetailScreen() {
       setForwardModalVisible(true);
     } else if (action === 'copy') {
       const text = selected.map((m) => `${m.sender === 'me' ? 'You' : seekerName}: ${m.text}`).join('\n');
-      Clipboard.setString(text);
+      Clipboard.setStringAsync(text);
       setSelectMode(false);
       setSelectedIds(new Set());
       showToast(`${selected.length} message${selected.length > 1 ? 's' : ''} copied`);
@@ -718,11 +720,11 @@ export default function ChatDetailScreen() {
     setSelectedMessage(null);
   }, []);
 
-  // Hardcoded seeker info
-  const seekerName = 'Sarah Johnson';
-  const seekerInitials = 'SJ';
-  const seekerColor = '#2563eb';
-  const seekerMaturity = 'New Believer';
+  // Seeker info — use route params if available, fallback to defaults
+  const seekerName = (nameParam as string) || 'Sarah Johnson';
+  const seekerInitials = (initialsParam as string) || 'SJ';
+  const seekerColor = (colorParam as string) || '#2563eb';
+  const seekerMaturity = (maturityParam as string) || 'New Believer';
   const isOnline = true;
   const seekerPlatform = 'WhatsApp'; // 'WhatsApp' | 'Telegram' | 'SMS' | 'Email'
 
@@ -1217,6 +1219,21 @@ export default function ChatDetailScreen() {
 
       </View>
 
+      {/* Unclaimed conversation banner */}
+      {!isClaimed && (
+        <View style={[styles.claimBanner, { backgroundColor: '#fef3c718', borderBottomColor: colors.border }]}>
+          <View style={[styles.claimIconCircle, { backgroundColor: '#f59e0b18' }]}>
+            <UserPlus size={18} color="#f59e0b" />
+          </View>
+          <View style={styles.claimBannerInfo}>
+            <Text style={[styles.claimBannerTitle, { color: colors.foreground }]}>New Conversation</Text>
+            <Text style={[styles.claimBannerDesc, { color: colors.mutedForeground }]}>
+              Claim this conversation to start mentoring {seekerName.split(' ')[0]}
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Messages + Bottom Area wrapped in KeyboardAvoidingView */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -1466,8 +1483,29 @@ export default function ChatDetailScreen() {
           </View>
         )}
 
-        {/* ─── Select Mode Toolbar ─────────────────────────────── */}
-        {selectMode ? (
+        {/* ─── Claim Conversation Button (unclaimed) ──────────── */}
+        {!isClaimed ? (
+          <View style={[styles.claimContainer, { paddingBottom: keyboardVisible ? 8 : Math.max(insets.bottom, 16) + 8, backgroundColor: colors.background, borderTopColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.claimBtn, { backgroundColor: colors.primary }]}
+              activeOpacity={0.8}
+              onPress={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setIsClaimed(true);
+                showToast(`You claimed the conversation with ${seekerName}`);
+              }}
+            >
+              <UserPlus size={18} color="#fff" />
+              <Text style={styles.claimBtnText}>Claim Conversation</Text>
+            </TouchableOpacity>
+            <Text style={[styles.claimHint, { color: colors.mutedForeground }]}>
+              You'll be assigned as the mentor for this seeker
+            </Text>
+          </View>
+        ) :
+
+        /* ─── Select Mode Toolbar ─────────────────────────────── */
+        selectMode ? (
           <View style={[styles.selectToolbar, { paddingBottom: keyboardVisible ? 8 : 24, backgroundColor: colors.background, borderTopColor: colors.border }]}>
             <TouchableOpacity onPress={() => { setSelectMode(false); setSelectedIds(new Set()); }} activeOpacity={0.7} style={styles.selectToolbarBtn}>
               <X size={20} color={colors.foreground} />
@@ -2690,5 +2728,60 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 13,
     color: '#3b82f6',
+  },
+
+  // Claim conversation
+  claimBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 0.5,
+  },
+  claimIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  claimBannerInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  claimBannerTitle: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 14,
+  },
+  claimBannerDesc: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 12,
+  },
+  claimContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    borderTopWidth: 0.5,
+    alignItems: 'center',
+    gap: 10,
+  },
+  claimBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 14,
+  },
+  claimBtnText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+    color: '#fff',
+  },
+  claimHint: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 12,
+    textAlign: 'center',
   },
 });

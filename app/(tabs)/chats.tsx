@@ -14,6 +14,7 @@ import {
   Users,
   MessageCircle,
   Pin,
+  UserPlus,
 } from 'lucide-react-native';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -31,6 +32,7 @@ const CONVERSATIONS = [
     pinned: true,
     maturity: 'New Believer',
     type: 'seeker' as const,
+    claimed: true,
   },
   {
     id: '2',
@@ -44,6 +46,7 @@ const CONVERSATIONS = [
     pinned: false,
     maturity: 'Seeker',
     type: 'seeker' as const,
+    claimed: true,
   },
   {
     id: '3',
@@ -57,6 +60,7 @@ const CONVERSATIONS = [
     pinned: false,
     maturity: '',
     type: 'group' as const,
+    claimed: true,
   },
   {
     id: '4',
@@ -70,6 +74,7 @@ const CONVERSATIONS = [
     pinned: false,
     maturity: 'Growing',
     type: 'seeker' as const,
+    claimed: true,
   },
   {
     id: '5',
@@ -83,6 +88,7 @@ const CONVERSATIONS = [
     pinned: true,
     maturity: 'New Believer',
     type: 'seeker' as const,
+    claimed: true,
   },
   {
     id: '6',
@@ -96,6 +102,7 @@ const CONVERSATIONS = [
     pinned: false,
     maturity: 'Interested',
     type: 'seeker' as const,
+    claimed: true,
   },
   {
     id: '7',
@@ -109,6 +116,7 @@ const CONVERSATIONS = [
     pinned: false,
     maturity: 'Growing',
     type: 'seeker' as const,
+    claimed: true,
   },
   {
     id: '8',
@@ -122,6 +130,35 @@ const CONVERSATIONS = [
     pinned: false,
     maturity: '',
     type: 'group' as const,
+    claimed: true,
+  },
+  {
+    id: '9',
+    name: 'Hana Bekele',
+    initials: 'HB',
+    color: '#14b8a6',
+    lastMessage: 'I saw an ad about your community and I want to learn more',
+    time: '10m ago',
+    unread: 1,
+    online: true,
+    pinned: false,
+    maturity: 'Pre-Seeker',
+    type: 'seeker' as const,
+    claimed: false,
+  },
+  {
+    id: '10',
+    name: 'Yonas Tadesse',
+    initials: 'YT',
+    color: '#a855f7',
+    lastMessage: 'Hello, someone shared your page with me. Can we talk?',
+    time: '25m ago',
+    unread: 1,
+    online: false,
+    pinned: false,
+    maturity: 'Interested',
+    type: 'seeker' as const,
+    claimed: false,
   },
 ];
 
@@ -157,7 +194,7 @@ export default function ChatsScreen() {
     <TouchableOpacity
       style={[styles.chatItem, { borderBottomColor: colors.border }]}
       activeOpacity={0.6}
-      onPress={() => router.push(`/chat/${item.id}`)}
+      onPress={() => router.push(`/chat/${item.id}?claimed=${item.claimed ? '1' : '0'}&name=${encodeURIComponent(item.name)}&initials=${item.initials}&color=${encodeURIComponent(item.color)}&maturity=${encodeURIComponent(item.maturity || '')}`)}
     >
       {/* Avatar */}
       <View style={styles.avatarContainer}>
@@ -186,6 +223,12 @@ export default function ChatsScreen() {
             >
               {item.name}
             </Text>
+            {!item.claimed && (
+              <View style={[styles.newBadge, { backgroundColor: '#f59e0b18' }]}>
+                <UserPlus size={10} color="#f59e0b" />
+                <Text style={styles.newBadgeText}>New</Text>
+              </View>
+            )}
           </View>
           <Text style={[styles.chatTime, { color: item.unread > 0 ? colors.primary : colors.mutedForeground }]}>
             {item.time}
@@ -203,7 +246,7 @@ export default function ChatsScreen() {
             {item.lastMessage}
           </Text>
           {item.unread > 0 && (
-            <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
+            <View style={[styles.unreadBadge, { backgroundColor: !item.claimed ? '#f59e0b' : colors.primary }]}>
               <Text style={styles.unreadText}>{item.unread}</Text>
             </View>
           )}
@@ -417,5 +460,18 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_700Bold',
     fontSize: 11,
     color: '#fff',
+  },
+  newBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  newBadgeText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 10,
+    color: '#f59e0b',
   },
 });
