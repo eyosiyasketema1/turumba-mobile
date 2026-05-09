@@ -1228,7 +1228,7 @@ export default function ChatDetailScreen() {
           <View style={styles.claimBannerInfo}>
             <Text style={[styles.claimBannerTitle, { color: colors.foreground }]}>New Conversation</Text>
             <Text style={[styles.claimBannerDesc, { color: colors.mutedForeground }]}>
-              Claim this conversation to start mentoring {seekerName.split(' ')[0]}
+              {seekerName.split(' ')[0]} is waiting to hear from you. Claim to start chatting!
             </Text>
           </View>
         </View>
@@ -1499,7 +1499,7 @@ export default function ChatDetailScreen() {
               <Text style={styles.claimBtnText}>Claim Conversation</Text>
             </TouchableOpacity>
             <Text style={[styles.claimHint, { color: colors.mutedForeground }]}>
-              You'll be assigned as the mentor for this seeker
+              Once claimed, you can begin your conversation right away
             </Text>
           </View>
         ) :
