@@ -65,13 +65,18 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'nudges' | 'achievements'>('all');
+  const [error, setError] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
+      setError(null);
       const data = await GamificationAPI.getNotifications(ACTOR_ID, ACCOUNT_ID, 50);
+      console.log('[Notifications] API response:', JSON.stringify(data).slice(0, 200));
       setNotifications(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.warn('Failed to fetch notifications:', e);
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      console.warn('Failed to fetch notifications:', msg);
+      setError(msg);
       setNotifications([]);
     } finally {
       setLoading(false);
@@ -186,6 +191,15 @@ export default function NotificationsScreen() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <AlertTriangle size={48} color="#ef4444" />
+          <Text style={[styles.emptyText, { color: '#ef4444' }]}>Failed to load</Text>
+          <Text style={[styles.emptySubtext, { color: colors.mutedForeground }]}>{error}</Text>
+          <TouchableOpacity onPress={() => { setLoading(true); fetchNotifications(); }} style={{ marginTop: 16, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}>
+            <Text style={{ color: '#fff', fontFamily: 'DMSans_600SemiBold', fontSize: 14 }}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
