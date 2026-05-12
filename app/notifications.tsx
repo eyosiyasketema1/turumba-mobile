@@ -69,9 +69,10 @@ export default function NotificationsScreen() {
   const fetchNotifications = useCallback(async () => {
     try {
       const data = await GamificationAPI.getNotifications(ACTOR_ID, ACCOUNT_ID, 50);
-      setNotifications(data);
+      setNotifications(Array.isArray(data) ? data : []);
     } catch (e) {
       console.warn('Failed to fetch notifications:', e);
+      setNotifications([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -90,7 +91,7 @@ export default function NotificationsScreen() {
   const handleMarkAllRead = async () => {
     try {
       await GamificationAPI.markAllNotificationsRead(ACCOUNT_ID, ACTOR_ID);
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setNotifications(prev => (Array.isArray(prev) ? prev : []).map(n => ({ ...n, is_read: true })));
     } catch (e) {
       console.warn('Failed to mark all read:', e);
     }
@@ -120,14 +121,16 @@ export default function NotificationsScreen() {
     }
   };
 
-  const filtered = notifications.filter(n => {
+  const safeNotifs = Array.isArray(notifications) ? notifications : [];
+
+  const filtered = safeNotifs.filter(n => {
     if (filter === 'nudges') return n.notification_type === 'mentor_nudge' || n.notification_type === 'seeker_needs_attention';
     if (filter === 'achievements') return ['badge_earned', 'level_up', 'streak_milestone', 'milestone_completed', 'rank_change'].includes(n.notification_type);
     return true;
   });
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-  const nudgeCount = notifications.filter(n =>
+  const unreadCount = safeNotifs.filter(n => !n.is_read).length;
+  const nudgeCount = safeNotifs.filter(n =>
     !n.is_read && (n.notification_type === 'mentor_nudge' || n.notification_type === 'seeker_needs_attention')
   ).length;
 
