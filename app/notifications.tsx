@@ -70,9 +70,14 @@ export default function NotificationsScreen() {
   const fetchNotifications = useCallback(async () => {
     try {
       setError(null);
-      const data = await GamificationAPI.getNotifications(ACTOR_ID, ACCOUNT_ID, 50);
-      console.log('[Notifications] API response:', JSON.stringify(data).slice(0, 200));
-      setNotifications(Array.isArray(data) ? data : []);
+      const result = await GamificationAPI.getNotifications(ACTOR_ID, ACCOUNT_ID, 50);
+      console.log('[Notifications] API result:', JSON.stringify(result).slice(0, 300));
+      // api() returns { data, error } wrapper
+      const items = (result as any)?.data ?? result;
+      setNotifications(Array.isArray(items) ? items : []);
+      if ((result as any)?.error) {
+        setError((result as any).error);
+      }
     } catch (e: any) {
       const msg = e?.message || String(e);
       console.warn('Failed to fetch notifications:', msg);
@@ -95,7 +100,8 @@ export default function NotificationsScreen() {
 
   const handleMarkAllRead = async () => {
     try {
-      await GamificationAPI.markAllNotificationsRead(ACCOUNT_ID, ACTOR_ID);
+      const result = await GamificationAPI.markAllNotificationsRead(ACCOUNT_ID, ACTOR_ID);
+      console.log('[Notifications] markAllRead result:', result);
       setNotifications(prev => (Array.isArray(prev) ? prev : []).map(n => ({ ...n, is_read: true })));
     } catch (e) {
       console.warn('Failed to mark all read:', e);
