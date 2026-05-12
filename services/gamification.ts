@@ -184,7 +184,84 @@ export const GamificationAPI = {
       body: { account_id: accountId, actor_id: actorId },
     });
   },
+
+  async getUnreadNotifications(actorId: string, accountId: string) {
+    return api<GamNotification[]>("/gamification/notifications", {
+      params: { account_id: accountId, actor_id: actorId, unread: "true", limit: "50" },
+    });
+  },
+
+  // Phase 6: Re-engagement
+  async getReengagementTemplates(accountId: string) {
+    return api<ReengagementTemplate[]>("/gamification/reengagement/templates", {
+      params: { account_id: accountId },
+    });
+  },
+
+  async getEnrollments(actorId: string, accountId: string, status = "active") {
+    return api<AutomationEnrollment[]>(`/gamification/reengagement/enrollments/${actorId}`, {
+      params: { account_id: accountId, status },
+    });
+  },
+
+  async getDrips(enrollmentId: string) {
+    return api<DripMessage[]>(`/gamification/reengagement/drips/${enrollmentId}`);
+  },
+
+  async enrollInAutomation(data: {
+    account_id: string;
+    actor_id: string;
+    actor_type?: string;
+    template_slug: string;
+  }) {
+    return api<{ enrollment_id: string; template_name: string; steps_count: number; status: string }>(
+      "/gamification/reengagement/enroll",
+      { method: "POST", body: data }
+    );
+  },
+
+  async cancelEnrollment(id: string) {
+    return api<{ id: string; status: string }>(`/gamification/reengagement/enrollments/${id}/cancel`, {
+      method: "PATCH",
+    });
+  },
 };
+
+// ─── Phase 6: Re-engagement Types ──────────────────────────────────────────
+
+export interface ReengagementTemplate {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  trigger_type: "manual" | "streak_broken" | "silence" | "dropout_risk";
+  steps: Array<{ delay_hours: number; channel: string; message: string }>;
+  is_active: boolean;
+}
+
+export interface AutomationEnrollment {
+  id: string;
+  actor_id: string;
+  actor_type: string;
+  template_id: string;
+  status: "active" | "completed" | "cancelled";
+  current_step: number;
+  enrolled_at: string;
+  completed_at: string | null;
+  metadata_: Record<string, any>;
+  reengagement_templates?: ReengagementTemplate;
+}
+
+export interface DripMessage {
+  id: string;
+  enrollment_id: string;
+  step_index: number;
+  message_content: string;
+  channel: string;
+  status: "pending" | "sent" | "delivered" | "failed";
+  scheduled_at: string;
+  sent_at: string | null;
+}
 
 // Phase 4 types
 export interface LeaderboardEntry {

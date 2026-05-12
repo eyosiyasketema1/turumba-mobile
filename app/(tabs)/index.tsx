@@ -141,12 +141,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={[styles.headerIconBtn, { backgroundColor: colors.secondary }]}
               activeOpacity={0.7}
-              onPress={() => {
-                bellRef.current?.measureInWindow((_x, y, _w, h) => {
-                  setBellBottom(y + h + 8);
-                  setShowNotifications(true);
-                });
-              }}
+              onPress={() => router.push('/notifications')}
             >
               <Bell size={20} color={colors.foreground} />
               {unreadCount > 0 && (

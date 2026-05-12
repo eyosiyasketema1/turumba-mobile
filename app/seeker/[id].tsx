@@ -10,6 +10,7 @@ import {
   Pressable,
   LayoutAnimation,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -44,6 +45,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '@/hooks/use-theme';
 import { MaturityColors } from '@/constants/theme';
+import { GamificationAPI, AutomationEnrollment, DripMessage } from '@/services/gamification';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -599,6 +601,32 @@ export default function SeekerDetailScreen() {
   const [reassignReason, setReassignReason] = useState('');
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as const });
   const toastAnim = useRef(new Animated.Value(0)).current;
+
+  // Re-engagement state
+  const [enrollments, setEnrollments] = useState<AutomationEnrollment[]>([]);
+  const [enrollmentDrips, setEnrollmentDrips] = useState<Record<string, DripMessage[]>>({});
+  const [reengLoading, setReengLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (activeTab === 'ai' && id) {
+      setReengLoading(true);
+      GamificationAPI.getEnrollments(id as string, 'tenant-1', 'active')
+        .then(async (data) => {
+          setEnrollments(data);
+          // Fetch drips for each enrollment
+          const dripsMap: Record<string, DripMessage[]> = {};
+          for (const e of data) {
+            try {
+              const drips = await GamificationAPI.getDrips(e.id);
+              dripsMap[e.id] = drips;
+            } catch (_) {}
+          }
+          setEnrollmentDrips(dripsMap);
+        })
+        .catch(() => {})
+        .finally(() => setReengLoading(false));
+    }
+  }, [activeTab, id]);
 
   const mColor = MaturityColors[maturity] || '#94a3b8';
   const sColor = STATUS_COLORS[status] || '#94a3b8';
@@ -1324,6 +1352,97 @@ export default function SeekerDetailScreen() {
                 </View>
               </View>
             )}
+
+            {/* ─── Re-engagement Status ─────────────────────────────── */}
+            {reengLoading ? (
+              <View style={[styles.card, { alignItems: 'center', paddingVertical: 24 }]}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.intelSub, { color: colors.mutedForeground, marginTop: 8 }]}>Loading re-engagement data...</Text>
+              </View>
+            ) : enrollments.length > 0 ? (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <RefreshCw size={14} color={colors.mutedForeground} />
+                  <Text style={[styles.cardTitle, { color: colors.foreground }]}>Active Re-engagement</Text>
+                </View>
+                {enrollments.map((enrollment) => {
+                  const drips = enrollmentDrips[enrollment.id] || [];
+                  const sent = drips.filter(d => d.status === 'sent').length;
+                  const total = drips.length;
+                  const templateName = enrollment.reengagement_templates?.name || 'Drip Sequence';
+                  const triggerType = enrollment.reengagement_templates?.trigger_type || 'manual';
+
+                  const triggerColors: Record<string, { color: string; bg: string }> = {
+                    silence: { color: '#f59e0b', bg: '#fffbeb' },
+                    streak_broken: { color: '#ef4444', bg: '#fef2f2' },
+                    dropout_risk: { color: '#dc2626', bg: '#fef2f2' },
+                    manual: { color: '#64748b', bg: '#f1f5f9' },
+                  };
+                  const tc = triggerColors[triggerType] || triggerColors.manual;
+
+                  return (
+                    <View key={enrollment.id} style={[styles.reengCard, { backgroundColor: colors.secondary }]}>
+                      <View style={styles.reengHeader}>
+                        <Text style={[styles.reengName, { color: colors.foreground }]}>{templateName}</Text>
+                        <View style={[styles.reengTriggerBadge, { backgroundColor: tc.bg }]}>
+                          <Text style={[styles.reengTriggerText, { color: tc.color }]}>{triggerType.replace('_', ' ')}</Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.reengSub, { color: colors.mutedForeground }]}>
+                        Enrolled {new Date(enrollment.enrolled_at).toLocaleDateString()} — Step {enrollment.current_step + 1} of {total || '?'}
+                      </Text>
+
+                      {/* Drip progress */}
+                      {total > 0 && (
+                        <View style={styles.dripProgress}>
+                          <View style={[styles.dripBar, { backgroundColor: colors.border }]}>
+                            <View style={[styles.dripBarFill, { width: `${total > 0 ? (sent / total) * 100 : 0}%`, backgroundColor: colors.primary }]} />
+                          </View>
+                          <Text style={[styles.dripCount, { color: colors.mutedForeground }]}>{sent}/{total} sent</Text>
+                        </View>
+                      )}
+
+                      {/* Drip messages timeline */}
+                      {drips.map((drip, idx) => {
+                        const isSent = drip.status === 'sent' || drip.status === 'delivered';
+                        const isPending = drip.status === 'pending';
+                        return (
+                          <View key={drip.id} style={styles.dripRow}>
+                            <View style={[
+                              styles.dripDot,
+                              { backgroundColor: isSent ? '#10b981' : isPending ? '#f59e0b' : '#ef4444' },
+                            ]} />
+                            <View style={styles.dripInfo}>
+                              <Text style={[styles.dripChannel, { color: colors.mutedForeground }]}>
+                                {drip.channel} — {isSent ? 'Sent' : isPending ? 'Scheduled' : drip.status}
+                              </Text>
+                              <Text style={[styles.dripMsg, { color: colors.foreground }]} numberOfLines={2}>
+                                {drip.message_content}
+                              </Text>
+                              <Text style={[styles.dripTime, { color: colors.mutedForeground }]}>
+                                {isSent && drip.sent_at
+                                  ? new Date(drip.sent_at).toLocaleString()
+                                  : `Scheduled: ${new Date(drip.scheduled_at).toLocaleString()}`}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={[styles.card, { alignItems: 'center', paddingVertical: 20 }]}>
+                <View style={styles.cardHeader}>
+                  <RefreshCw size={14} color={colors.mutedForeground} />
+                  <Text style={[styles.cardTitle, { color: colors.foreground }]}>Re-engagement</Text>
+                </View>
+                <Text style={[styles.intelSub, { color: colors.mutedForeground, textAlign: 'center', marginTop: 4 }]}>
+                  No active drip sequences for this seeker
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -1600,4 +1719,22 @@ const styles = StyleSheet.create({
   toastText: { fontFamily: 'DMSans_600SemiBold', fontSize: 13, color: '#fff', flex: 1 },
 
   // Mentor selection
+
+  // Re-engagement styles
+  reengCard: { padding: 12, borderRadius: 10, marginTop: 10 },
+  reengHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  reengName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14, flex: 1 },
+  reengTriggerBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  reengTriggerText: { fontFamily: 'DMSans_600SemiBold', fontSize: 10, textTransform: 'uppercase' },
+  reengSub: { fontFamily: 'DMSans_400Regular', fontSize: 12, marginBottom: 8 },
+  dripProgress: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  dripBar: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
+  dripBarFill: { height: '100%', borderRadius: 3 },
+  dripCount: { fontFamily: 'DMSans_500Medium', fontSize: 11 },
+  dripRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8, gap: 8 },
+  dripDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
+  dripInfo: { flex: 1 },
+  dripChannel: { fontFamily: 'DMSans_500Medium', fontSize: 11, textTransform: 'capitalize' },
+  dripMsg: { fontFamily: 'DMSans_400Regular', fontSize: 12, lineHeight: 17, marginTop: 2 },
+  dripTime: { fontFamily: 'DMSans_400Regular', fontSize: 10, marginTop: 2 },
 });
