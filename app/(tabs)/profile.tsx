@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Switch,
   Modal,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,8 +23,27 @@ import {
   Shield,
   HelpCircle,
   Check,
+  Trophy,
+  Award,
+  Medal,
 } from 'lucide-react-native';
 import { useTheme } from '@/hooks/use-theme';
+import { isApiConfigured } from '@/services/api';
+import {
+  GamificationAPI,
+  xpProgress,
+  tierColor,
+  tierLabel,
+  rarityColor,
+  type GamificationProfile,
+  type BadgeAward,
+  type LeaderboardEntry,
+  type PointsSummary,
+} from '@/services/gamification';
+import XpProgressBar from '@/components/gamification/XpProgressBar';
+import TierBadge from '@/components/gamification/TierBadge';
+import StreakFlame from '@/components/gamification/StreakFlame';
+import BadgeCard from '@/components/gamification/BadgeCard';
 
 // ─── Mentor Profile Data ──────────────────────────────────────────────────
 
@@ -55,6 +75,38 @@ export default function ProfileScreen() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [language, setLanguage] = useState('English');
+
+  // Gamification state
+  const [gamProfile, setGamProfile] = useState<GamificationProfile | null>(null);
+  const [pointsSummary, setPointsSummary] = useState<PointsSummary | null>(null);
+  const [earnedBadges, setEarnedBadges] = useState<BadgeAward[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [gamLoading, setGamLoading] = useState(true);
+
+  // Fetch gamification data
+  const ACCOUNT_ID = 'tenant-1';
+  const ACTOR_ID = 'contact-2'; // Current mentor actor — swap for real user ID
+
+  useEffect(() => {
+    if (!isApiConfigured()) { setGamLoading(false); return; }
+
+    Promise.allSettled([
+      GamificationAPI.getProfile(ACTOR_ID, ACCOUNT_ID),
+      GamificationAPI.getPointsSummary(ACTOR_ID, ACCOUNT_ID),
+      GamificationAPI.getAwardedBadges(ACTOR_ID, ACCOUNT_ID),
+      GamificationAPI.getLeaderboard(ACCOUNT_ID, 'weekly', undefined, 5),
+    ]).then(([profileRes, summaryRes, badgesRes, lbRes]) => {
+      if (profileRes.status === 'fulfilled' && profileRes.value.data)
+        setGamProfile(profileRes.value.data);
+      if (summaryRes.status === 'fulfilled' && summaryRes.value.data)
+        setPointsSummary(summaryRes.value.data);
+      if (badgesRes.status === 'fulfilled' && badgesRes.value.data)
+        setEarnedBadges(badgesRes.value.data);
+      if (lbRes.status === 'fulfilled' && lbRes.value.data)
+        setLeaderboard(lbRes.value.data);
+      setGamLoading(false);
+    });
+  }, []);
 
   const LANGUAGES = [
     { code: 'en', name: 'English', native: 'English' },
@@ -96,6 +148,153 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+
+        {/* ─── Gamification Section ─────────────────────────────────────── */}
+        {gamLoading ? (
+          <View style={[styles.section, { alignItems: 'center', paddingVertical: 20 }]}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : gamProfile ? (
+          <>
+            {/* XP & Level Card */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>GAMIFICATION</Text>
+              <View style={[styles.card, { borderColor: colors.border, padding: 16 }]}>
+                {/* Tier + Level row */}
+                <View style={gamStyles.topRow}>
+                  <TierBadge tier={gamProfile.tier} level={gamProfile.level} size="medium" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[gamStyles.levelText, { color: colors.foreground }]}>
+                      Level {gamProfile.level}
+                    </Text>
+                    <Text style={[gamStyles.tierText, { color: tierColor(gamProfile.tier) }]}>
+                      {tierLabel(gamProfile.tier)} Tier
+                    </Text>
+                  </View>
+                  <StreakFlame currentStreak={gamProfile.current_streak} longestStreak={gamProfile.longest_streak} />
+                </View>
+
+                {/* XP Progress */}
+                <View style={{ marginTop: 14 }}>
+                  <XpProgressBar
+                    totalXp={gamProfile.total_xp}
+                    level={gamProfile.level}
+                    tier={gamProfile.tier}
+                  />
+                </View>
+
+                {/* XP Stats Row */}
+                {pointsSummary && (
+                  <View style={gamStyles.statsRow}>
+                    <View style={gamStyles.statItem}>
+                      <Text style={[gamStyles.statValue, { color: colors.foreground }]}>
+                        {gamProfile.total_xp.toLocaleString()}
+                      </Text>
+                      <Text style={[gamStyles.statLabel, { color: colors.mutedForeground }]}>Total XP</Text>
+                    </View>
+                    <View style={[gamStyles.statDivider, { backgroundColor: colors.border }]} />
+                    <View style={gamStyles.statItem}>
+                      <Text style={[gamStyles.statValue, { color: colors.foreground }]}>
+                        {pointsSummary.this_week}
+                      </Text>
+                      <Text style={[gamStyles.statLabel, { color: colors.mutedForeground }]}>This Week</Text>
+                    </View>
+                    <View style={[gamStyles.statDivider, { backgroundColor: colors.border }]} />
+                    <View style={gamStyles.statItem}>
+                      <Text style={[gamStyles.statValue, { color: colors.foreground }]}>
+                        {gamProfile.current_streak}
+                      </Text>
+                      <Text style={[gamStyles.statLabel, { color: colors.mutedForeground }]}>Day Streak</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Badges */}
+            {earnedBadges.length > 0 && (
+              <View style={styles.section}>
+                <View style={gamStyles.sectionHeader}>
+                  <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                    BADGES EARNED
+                  </Text>
+                  <View style={gamStyles.badgeCount}>
+                    <Text style={[gamStyles.badgeCountText, { color: colors.primary }]}>
+                      {earnedBadges.length}
+                    </Text>
+                  </View>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 10, paddingTop: 10 }}
+                >
+                  {earnedBadges.map((award) => (
+                    <BadgeCard
+                      key={award.id}
+                      name={award.badge.name}
+                      description={award.badge.description}
+                      category={award.badge.category}
+                      rarity={award.badge.rarity}
+                      xpReward={award.badge.xp_reward}
+                      earned
+                      earnedDate={award.awarded_at}
+                      compact
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Mini Leaderboard */}
+            {leaderboard.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>WEEKLY LEADERBOARD</Text>
+                <View style={[styles.card, { borderColor: colors.border }]}>
+                  {leaderboard.map((entry, i) => {
+                    const isMe = entry.actor_id === ACTOR_ID;
+                    const medalColors: Record<number, string> = { 1: '#f59e0b', 2: '#94a3b8', 3: '#d97706' };
+                    const medalColor = medalColors[entry.rank];
+                    return (
+                      <View
+                        key={entry.id}
+                        style={[
+                          gamStyles.lbRow,
+                          i > 0 && { borderTopWidth: 0.5, borderTopColor: colors.border },
+                          isMe && { backgroundColor: colors.primary + '08' },
+                        ]}
+                      >
+                        {entry.rank <= 3 ? (
+                          <View style={[gamStyles.medalCircle, { backgroundColor: medalColor + '18' }]}>
+                            <Medal size={14} color={medalColor!} />
+                          </View>
+                        ) : (
+                          <Text style={[gamStyles.lbRank, { color: colors.mutedForeground }]}>
+                            {entry.rank}
+                          </Text>
+                        )}
+                        <View style={[gamStyles.lbAvatar, { backgroundColor: colors.primary + '15' }]}>
+                          <Text style={[gamStyles.lbAvatarText, { color: colors.primary }]}>
+                            {entry.actor_id.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[gamStyles.lbName, { color: colors.foreground }]} numberOfLines={1}>
+                            {entry.actor_id.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                            {isMe ? ' (You)' : ''}
+                          </Text>
+                        </View>
+                        <Text style={[gamStyles.lbXp, { color: medalColor || colors.foreground }]}>
+                          {entry.xp_earned} <Text style={{ fontSize: 10, color: colors.mutedForeground }}>XP</Text>
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+          </>
+        ) : null}
 
         {/* Contact Details */}
         <View style={styles.section}>
@@ -470,4 +669,102 @@ const styles = StyleSheet.create({
   langName: { fontFamily: 'DMSans_600SemiBold', fontSize: 14 },
   langNative: { fontFamily: 'DMSans_500Medium', fontSize: 12, marginTop: 2 },
   langCheckCircle: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+});
+
+const gamStyles = StyleSheet.create({
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  levelText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 18,
+    letterSpacing: -0.3,
+  },
+  tierText: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 0.5,
+    borderTopColor: '#e2e8f0',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 16,
+  },
+  statLabel: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 0.5,
+    height: 28,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 0,
+  },
+  badgeCount: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+  },
+  badgeCountText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 11,
+  },
+  // Leaderboard
+  lbRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  medalCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lbRank: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 13,
+    width: 26,
+    textAlign: 'center',
+  },
+  lbAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lbAvatarText: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 12,
+  },
+  lbName: {
+    fontFamily: 'DMSans_600SemiBold',
+    fontSize: 13,
+  },
+  lbXp: {
+    fontFamily: 'DMSans_700Bold',
+    fontSize: 13,
+  },
 });
