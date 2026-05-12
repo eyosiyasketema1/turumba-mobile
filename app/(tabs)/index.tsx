@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -56,43 +56,6 @@ const ACTIVITY = [
   { id: '12', icon: TrendingUp, color: '#10b981', bgColor: '#ecfdf5', title: "Maria's engagement score hit 91% — highest this month", time: '3 days ago', route: '/seeker/3?tab=ai' },
 ];
 
-// ─── Notification Data ─────────────────────────────────────────────────────
-
-type NotifType = 'message' | 'milestone' | 'assignment' | 'journey' | 'system' | 'prayer';
-
-interface Notification {
-  id: string;
-  type: NotifType;
-  title: string;
-  body: string;
-  time: string;
-  read: boolean;
-  route: string | null;
-}
-
-const NOTIFICATIONS: Notification[] = [
-  { id: '1', type: 'message', title: 'New message from Sarah Johnson', body: 'Thank you for the prayer guide! I have a question about...', time: '2m ago', read: false, route: '/chat/1' },
-  { id: '2', type: 'milestone', title: 'Milestone reached', body: 'James Wilson accepted Christ — congratulations!', time: '30m ago', read: false, route: '/seeker/4?tab=milestones' },
-  { id: '3', type: 'assignment', title: 'New seeker assigned', body: 'Daniel Mekonnen has been matched to you as a mentor', time: '1h ago', read: false, route: '/seeker/2?tab=profile' },
-  { id: '4', type: 'message', title: 'New message from Daniel Mekonnen', body: 'I finished reading the chapter you assigned', time: '1h ago', read: false, route: '/chat/2' },
-  { id: '5', type: 'journey', title: 'Journey completed', body: 'Abebe Tadesse finished Bible 101 — all 10 lessons done', time: '2h ago', read: true, route: '/seeker/7?tab=journey' },
-  { id: '6', type: 'prayer', title: 'Prayer request', body: 'Rachel Thompson asked for prayer for her family situation', time: '3h ago', read: true, route: '/seeker/5?tab=notes' },
-  { id: '7', type: 'system', title: 'Weekly report ready', body: 'Your seeker engagement summary for this week is available', time: '5h ago', read: true, route: null },
-  { id: '8', type: 'milestone', title: 'Milestone reached', body: 'Sarah Johnson completed First Prayer milestone', time: '6h ago', read: true, route: '/seeker/1?tab=milestones' },
-  { id: '9', type: 'assignment', title: 'Mentor reassignment', body: 'Fatima Ali has been reassigned to your care', time: '1d ago', read: true, route: '/seeker/8?tab=profile' },
-  { id: '10', type: 'prayer', title: 'Prayer request', body: 'Sarah Johnson — guidance in understanding Scripture', time: '1d ago', read: true, route: '/seeker/1?tab=notes' },
-  { id: '11', type: 'journey', title: 'Journey started', body: 'James Wilson began Foundations of Faith', time: '2d ago', read: true, route: '/seeker/4?tab=journey' },
-  { id: '12', type: 'system', title: 'App update available', body: 'Turumba v2.4 is ready with new journey templates', time: '3d ago', read: true, route: null },
-];
-
-const NOTIF_ICONS: Record<NotifType, { icon: any; color: string; bg: string }> = {
-  message: { icon: MessageCircle, color: '#2563eb', bg: '#eff6ff' },
-  milestone: { icon: Star, color: '#10b981', bg: '#ecfdf5' },
-  assignment: { icon: UserCheck, color: '#8b5cf6', bg: '#f5f3ff' },
-  journey: { icon: BookOpen, color: '#f59e0b', bg: '#fffbeb' },
-  system: { icon: AlertCircle, color: '#64748b', bg: '#f1f5f9' },
-  prayer: { icon: Heart, color: '#ef4444', bg: '#fef2f2' },
-};
 
 export default function HomeScreen() {
   const colors = useTheme();
@@ -100,24 +63,10 @@ export default function HomeScreen() {
   const router = useRouter();
   const [activeMetric, setActiveMetric] = useState(0);
   const [showAllActivity, setShowAllActivity] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState(NOTIFICATIONS);
-  const bellRef = useRef<View>(null);
-  const [bellBottom, setBellBottom] = useState(0);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [language, setLanguage] = useState('English');
 
   const LANGUAGES = ['English', 'Amharic', 'Afaan Oromoo', 'Tigrinya', 'Spanish', 'Arabic', 'French'];
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const markRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
-  };
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -137,20 +86,13 @@ export default function HomeScreen() {
           </Text>
         </View>
         <View style={styles.headerRight}>
-          <View ref={bellRef} collapsable={false}>
-            <TouchableOpacity
-              style={[styles.headerIconBtn, { backgroundColor: colors.secondary }]}
-              activeOpacity={0.7}
-              onPress={() => router.push('/notifications')}
-            >
-              <Bell size={20} color={colors.foreground} />
-              {unreadCount > 0 && (
-                <View style={[styles.notifBadge, { backgroundColor: colors.destructive }]}>
-                  <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.headerIconBtn, { backgroundColor: colors.secondary }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/notifications')}
+          >
+            <Bell size={20} color={colors.foreground} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.headerIconBtn, { backgroundColor: colors.secondary }]}
             activeOpacity={0.7}
