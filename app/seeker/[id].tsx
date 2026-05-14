@@ -46,6 +46,23 @@ import {
 import { useTheme } from '@/hooks/use-theme';
 import { MaturityColors } from '@/constants/theme';
 import { GamificationAPI, AutomationEnrollment, DripMessage } from '@/services/gamification';
+import { JourneysAPI, MilestonesAPI, type FaithJourney, type MilestoneEntry } from '@/services/journeys';
+
+// Meta lookup so a FaithJourney row can render a name + description
+// consistent with the bottom-tab Journeys screen.
+const JOURNEY_TYPE_META_SEEKER: Record<string, { name: string; description: string }> = {
+  Salvation: { name: 'Salvation Journey', description: 'Discovering who Jesus is and making a decision to follow Him' },
+  Baptism:   { name: 'Baptism Journey',   description: 'Preparing for and walking through baptism as a new believer' },
+  Community: { name: 'Community Journey', description: 'Finding fellowship and growing in community with other believers' },
+  Growth:    { name: 'Growth Journey',    description: 'Spiritual growth, discipline, and deepening maturity' },
+};
+
+function formatJourneyDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -607,6 +624,97 @@ export default function SeekerDetailScreen() {
   const [enrollmentDrips, setEnrollmentDrips] = useState<Record<string, DripMessage[]>>({});
   const [reengLoading, setReengLoading] = useState(false);
 
+  // Real-API journey + milestones state — only populated when the route id
+  // looks like a real contact_id (i.e. anything but the legacy mock IDs '1'-'8').
+  const [realJourney, setRealJourney] = useState<FaithJourney | null>(null);
+  const [realMilestones, setRealMilestones] = useState<MilestoneEntry[] | null>(null);
+  const looksLikeRealId = typeof id === 'string' && /^[a-z]+-/i.test(id);
+
+  React.useEffect(() => {
+    if (!looksLikeRealId) {
+      setRealJourney(null);
+      setRealMilestones(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    // Journey: take the first FaithJourney record for this contact.
+    JourneysAPI.listForContact('tenant-1', id as string)
+      .then((res) => {
+        if (cancelled) return;
+        const raw = (res as any)?.data?.data ?? res?.data;
+        const list: FaithJourney[] = Array.isArray(raw) ? raw : [];
+        setRealJourney(list[0] || null);
+      })
+      .catch(() => { if (!cancelled) setRealJourney(null); });
+
+    // Milestones
+    MilestonesAPI.getForContact(id as string, 'tenant-1')
+      .then((res) => {
+        if (cancelled) return;
+        const raw = (res as any)?.data?.data ?? res?.data;
+        const entries: MilestoneEntry[] = Array.isArray(raw?.milestone_entries)
+          ? raw.milestone_entries
+          : [];
+        // Sort by sort_order so the visual timeline matches the spec order.
+        entries.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        setRealMilestones(entries);
+      })
+      .catch(() => { if (!cancelled) setRealMilestones(null); });
+
+    return () => { cancelled = true; };
+  }, [id, looksLikeRealId]);
+
+  // Derive a render-shape journey so the existing JSX (which expects mock
+  // keys like currentLesson/totalLessons/progress) can render real data
+  // unchanged. For real contact_ids with no journey, return null so the
+  // empty-state card shows instead of stale mock data.
+  const journeyForRender = React.useMemo(() => {
+    if (looksLikeRealId) {
+      if (!realJourney) return null;
+      const meta = JOURNEY_TYPE_META_SEEKER[realJourney.type] || {
+        name: `${realJourney.type} Journey`,
+        description: 'Faith journey in progress',
+      };
+      const total = Math.max(1, realJourney.total || 0);
+      const cur = Math.max(0, realJourney.indicators || 0);
+      return {
+        name: meta.name,
+        stage: realJourney.stage,
+        progress: Math.min(1, cur / total),
+        currentLesson: cur,
+        totalLessons: total,
+        startedDate: formatJourneyDate(realJourney.started_at),
+        source: realJourney.source || '—',
+        language: realJourney.language || '—',
+        validation: realJourney.validation,
+        category: realJourney.type,
+        description: meta.description,
+        lessons: undefined,
+      } as any;
+    }
+    return seeker.currentJourney; // legacy mock path
+  }, [looksLikeRealId, realJourney, seeker.currentJourney]);
+
+  // Map API milestone rows to the {id,label,state,date} shape the existing
+  // JSX expects. Always returns an array so .map() is safe.
+  const milestonesForRender = React.useMemo(() => {
+    if (looksLikeRealId) {
+      if (!realMilestones) return [];
+      return realMilestones.map((m) => ({
+        id: m.id,
+        label: m.label,
+        state: m.state,
+        date: m.date
+          ? new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '',
+        sub: m.sub,
+      }));
+    }
+    return seeker.milestones; // legacy mock path
+  }, [looksLikeRealId, realMilestones, seeker.milestones]);
+
   React.useEffect(() => {
     if (activeTab === 'ai' && id) {
       setReengLoading(true);
@@ -943,15 +1051,15 @@ export default function SeekerDetailScreen() {
            ────────────────────────────────────────────────────────── */}
         {activeTab === 'journey' && (
           <View style={styles.content}>
-            {seeker.currentJourney ? (
+            {journeyForRender ? (
               <>
                 {/* Main journey card */}
                 <View style={styles.card}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                    <Text style={[styles.journeyTitle, { color: colors.foreground }]}>{seeker.currentJourney.name}</Text>
-                    <View style={[styles.stagePill, { backgroundColor: (STAGE_COLORS[seeker.currentJourney.stage] || '#94a3b8') + '15' }]}>
-                      <Text style={[styles.stagePillText, { color: STAGE_COLORS[seeker.currentJourney.stage] || '#94a3b8' }]}>
-                        {seeker.currentJourney.stage}
+                    <Text style={[styles.journeyTitle, { color: colors.foreground }]}>{journeyForRender.name}</Text>
+                    <View style={[styles.stagePill, { backgroundColor: (STAGE_COLORS[journeyForRender.stage] || '#94a3b8') + '15' }]}>
+                      <Text style={[styles.stagePillText, { color: STAGE_COLORS[journeyForRender.stage] || '#94a3b8' }]}>
+                        {journeyForRender.stage}
                       </Text>
                     </View>
                   </View>
@@ -961,37 +1069,37 @@ export default function SeekerDetailScreen() {
                     <View style={styles.progressTop}>
                       <Text style={[styles.progressLbl, { color: colors.mutedForeground }]}>Lesson Progress</Text>
                       <Text style={[styles.progressNum, { color: colors.foreground }]}>
-                        {Math.min(seeker.currentJourney.currentLesson, seeker.currentJourney.totalLessons)}
-                        <Text style={{ color: colors.mutedForeground, fontFamily: 'DMSans_500Medium' }}> / {seeker.currentJourney.totalLessons}</Text>
+                        {Math.min(journeyForRender.currentLesson, journeyForRender.totalLessons)}
+                        <Text style={{ color: colors.mutedForeground, fontFamily: 'DMSans_500Medium' }}> / {journeyForRender.totalLessons}</Text>
                       </Text>
                     </View>
                     <View style={[styles.progressTrack, { backgroundColor: colors.secondary }]}>
-                      <View style={[styles.progressFill, { backgroundColor: colors.primary, width: `${Math.round(seeker.currentJourney.progress * 100)}%` }]} />
+                      <View style={[styles.progressFill, { backgroundColor: colors.primary, width: `${Math.round(journeyForRender.progress * 100)}%` }]} />
                     </View>
                     <Text style={[styles.progressPct, { color: colors.primary }]}>
-                      {Math.round(seeker.currentJourney.progress * 100)}% complete
+                      {Math.round(journeyForRender.progress * 100)}% complete
                     </Text>
                   </View>
                 </View>
 
                 {/* Journey Description + Category */}
-                {seeker.currentJourney.description && (
+                {journeyForRender.description && (
                   <View style={styles.card}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <BookOpen size={14} color={colors.primary} />
                       <Text style={[styles.cardTitle, { color: colors.foreground }]}>About This Journey</Text>
-                      {seeker.currentJourney.category && (
+                      {journeyForRender.category && (
                         <View style={[styles.categoryBadge, { backgroundColor: colors.primary + '12' }]}>
-                          <Text style={[styles.categoryBadgeText, { color: colors.primary }]}>{seeker.currentJourney.category}</Text>
+                          <Text style={[styles.categoryBadgeText, { color: colors.primary }]}>{journeyForRender.category}</Text>
                         </View>
                       )}
                     </View>
-                    <Text style={[styles.journeyDesc, { color: colors.mutedForeground }]}>{seeker.currentJourney.description}</Text>
+                    <Text style={[styles.journeyDesc, { color: colors.mutedForeground }]}>{journeyForRender.description}</Text>
                   </View>
                 )}
 
                 {/* Lessons List */}
-                {seeker.currentJourney.lessons && seeker.currentJourney.lessons.length > 0 && (
+                {journeyForRender.lessons && journeyForRender.lessons.length > 0 && (
                   <View style={styles.card}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -999,15 +1107,15 @@ export default function SeekerDetailScreen() {
                         <Text style={[styles.cardTitle, { color: colors.foreground }]}>Lessons</Text>
                       </View>
                       <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: colors.mutedForeground }}>
-                        {Math.min(seeker.currentJourney.currentLesson - 1, seeker.currentJourney.totalLessons)} of {seeker.currentJourney.totalLessons} done
+                        {Math.min(journeyForRender.currentLesson - 1, journeyForRender.totalLessons)} of {journeyForRender.totalLessons} done
                       </Text>
                     </View>
-                    {seeker.currentJourney.lessons.map((lesson: any, idx: number) => {
+                    {journeyForRender.lessons.map((lesson: any, idx: number) => {
                       const lessonNum = idx + 1;
-                      const isCompleted = lessonNum < seeker.currentJourney.currentLesson;
-                      const isCurrent = lessonNum === seeker.currentJourney.currentLesson;
-                      const isUpcoming = lessonNum > seeker.currentJourney.currentLesson;
-                      const isLast = idx === seeker.currentJourney.lessons.length - 1;
+                      const isCompleted = lessonNum < journeyForRender.currentLesson;
+                      const isCurrent = lessonNum === journeyForRender.currentLesson;
+                      const isUpcoming = lessonNum > journeyForRender.currentLesson;
+                      const isLast = idx === journeyForRender.lessons.length - 1;
 
                       return (
                         <View key={lesson.id}>
@@ -1072,10 +1180,10 @@ export default function SeekerDetailScreen() {
                 <View style={styles.card}>
                   <Text style={[styles.cardTitle, { color: colors.foreground, marginBottom: 12 }]}>Details</Text>
                   {[
-                    { key: 'Source', val: seeker.currentJourney.source },
-                    { key: 'Language', val: seeker.currentJourney.language },
-                    { key: 'Started', val: seeker.currentJourney.startedDate },
-                    { key: 'Category', val: seeker.currentJourney.category || '—' },
+                    { key: 'Source', val: journeyForRender.source },
+                    { key: 'Language', val: journeyForRender.language },
+                    { key: 'Started', val: journeyForRender.startedDate },
+                    { key: 'Category', val: journeyForRender.category || '—' },
                   ].map((row, i) => (
                     <View key={row.key} style={[styles.kvRow, i > 0 && { borderTopWidth: 0.5, borderTopColor: colors.border }]}>
                       <Text style={[styles.kvKey, { color: colors.mutedForeground }]}>{row.key}</Text>
@@ -1084,9 +1192,9 @@ export default function SeekerDetailScreen() {
                   ))}
                   <View style={[styles.kvRow, { borderTopWidth: 0.5, borderTopColor: colors.border }]}>
                     <Text style={[styles.kvKey, { color: colors.mutedForeground }]}>Validation</Text>
-                    <View style={[styles.validBadge, { backgroundColor: seeker.currentJourney.validation === 'Confirmed' ? '#ecfdf5' : '#fffbeb' }]}>
-                      <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 11, color: seeker.currentJourney.validation === 'Confirmed' ? '#10b981' : '#f59e0b' }}>
-                        {seeker.currentJourney.validation}
+                    <View style={[styles.validBadge, { backgroundColor: journeyForRender.validation === 'Confirmed' ? '#ecfdf5' : '#fffbeb' }]}>
+                      <Text style={{ fontFamily: 'DMSans_600SemiBold', fontSize: 11, color: journeyForRender.validation === 'Confirmed' ? '#10b981' : '#f59e0b' }}>
+                        {journeyForRender.validation}
                       </Text>
                     </View>
                   </View>
@@ -1098,7 +1206,7 @@ export default function SeekerDetailScreen() {
                   <View style={styles.pipeline}>
                     {['Touchpoint', 'Engaged', 'Active Journey', 'Decision'].map((stage, idx) => {
                       const stages = ['Touchpoint', 'Engaged', 'Active Journey', 'Decision'];
-                      const curIdx = stages.indexOf(seeker.currentJourney.stage);
+                      const curIdx = stages.indexOf(journeyForRender.stage);
                       const past = idx < curIdx;
                       const current = idx === curIdx;
                       const isLast = idx === stages.length - 1;
@@ -1168,11 +1276,11 @@ export default function SeekerDetailScreen() {
         {activeTab === 'milestones' && (
           <View style={styles.content}>
             {/* Visual timeline */}
-            {seeker.milestones.map((m: any, idx: number) => {
+            {milestonesForRender.map((m: any, idx: number) => {
               const sc = MILESTONE_COLORS[m.state];
               const Icon = m.state === 'done' ? CheckCircle2 : m.state === 'progress' ? Clock : Circle;
               const label = m.state === 'done' ? 'Complete' : m.state === 'progress' ? 'In Progress' : 'Pending';
-              const isLast = idx === seeker.milestones.length - 1;
+              const isLast = idx === milestonesForRender.length - 1;
 
               return (
                 <View key={m.id} style={styles.msRow}>
