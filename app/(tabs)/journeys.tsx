@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   FlatList,
   TextInput,
   LayoutAnimation,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,71 +24,216 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '@/hooks/use-theme';
 import { MaturityColors } from '@/constants/theme';
+import { isApiConfigured } from '@/services/api';
+import { JourneysAPI, type FaithJourney } from '@/services/journeys';
 
-// ─── Journey Data ──────────────────────────────────────────────────────────
+// ─── Wiring config ─────────────────────────────────────────────────────────
+// Same hardcoded mentor / tenant pair as the rest of the app.
+const TENANT_ID = 'tenant-1';
 
-const JOURNEYS = [
+// ─── Journey type metadata ─────────────────────────────────────────────────
+// API enum values for FaithJourney.type — see TURUMBA_MOBILE_APP_SPEC.md.
+// We render one "curriculum card" per type, with each contact's record as
+// an enrolled seeker row underneath.
+const JOURNEY_TYPE_META: Record<string, { name: string; description: string; defaultTotal: number }> = {
+  Salvation: {
+    name: 'Salvation Journey',
+    description: 'Discovering who Jesus is and making a decision to follow Him',
+    defaultTotal: 4,
+  },
+  Baptism: {
+    name: 'Baptism Journey',
+    description: 'Preparing for and walking through baptism as a new believer',
+    defaultTotal: 4,
+  },
+  Community: {
+    name: 'Community Journey',
+    description: 'Finding fellowship and growing in community with other believers',
+    defaultTotal: 4,
+  },
+  Growth: {
+    name: 'Growth Journey',
+    description: 'Spiritual growth, discipline, and deepening maturity',
+    defaultTotal: 4,
+  },
+};
+
+// Stage → maturity label shown next to the seeker name.
+const STAGE_MATURITY: Record<string, string> = {
+  Touchpoint: 'Seeker',
+  Engaged: 'Seeker',
+  'Active Journey': 'New Believer',
+  Decision: 'Growing',
+};
+
+const SEEKER_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16'];
+
+function hashCode(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function colorFor(id: string): string {
+  return SEEKER_COLORS[hashCode(id) % SEEKER_COLORS.length];
+}
+
+function titleize(id: string): string {
+  return id
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function initialsFor(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '—';
+  const diff = Date.now() - then;
+  if (diff < 0) return 'just now';
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  const w = Math.floor(d / 7);
+  return `${w}w ago`;
+}
+
+// Shape consumed by the existing render code.
+interface EnrolledSeeker {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  currentLesson: number;
+  maturity: string;
+  lastActive: string;
+}
+
+interface JourneyCard {
+  id: string;
+  name: string;
+  description: string;
+  totalLessons: number;
+  category: string;
+  enrolledSeekers: EnrolledSeeker[];
+}
+
+// Group raw FaithJourney records into one card per type.
+function groupJourneys(records: FaithJourney[]): JourneyCard[] {
+  const buckets = new Map<string, FaithJourney[]>();
+  for (const r of records) {
+    const key = r.type || 'Other';
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key)!.push(r);
+  }
+
+  const out: JourneyCard[] = [];
+  for (const [type, items] of buckets) {
+    const meta = JOURNEY_TYPE_META[type] || {
+      name: `${type} Journey`,
+      description: 'Faith journey in progress',
+      defaultTotal: 4,
+    };
+    const totalLessons = Math.max(meta.defaultTotal, ...items.map((it) => it.total || 0));
+
+    const enrolled: EnrolledSeeker[] = items.map((r) => {
+      const name = titleize(r.contact_id);
+      return {
+        id: r.contact_id,
+        name,
+        initials: initialsFor(name),
+        color: colorFor(r.contact_id),
+        currentLesson: r.indicators || 0,
+        maturity: STAGE_MATURITY[r.stage] || 'Seeker',
+        lastActive: relativeTime(r.updated_at || r.started_at),
+      };
+    });
+
+    out.push({
+      id: type,
+      name: meta.name,
+      description: meta.description,
+      totalLessons,
+      category: type,
+      enrolledSeekers: enrolled,
+    });
+  }
+  // Add empty placeholders for any type with no enrollments yet so the tab
+  // still feels populated.
+  for (const type of Object.keys(JOURNEY_TYPE_META)) {
+    if (!buckets.has(type)) {
+      const meta = JOURNEY_TYPE_META[type];
+      out.push({
+        id: type,
+        name: meta.name,
+        description: meta.description,
+        totalLessons: meta.defaultTotal,
+        category: type,
+        enrolledSeekers: [],
+      });
+    }
+  }
+  return out;
+}
+
+// Fallback mock — used when API isn't configured or returns nothing — so the
+// tab keeps demoing well in environments without a live Supabase backend.
+const MOCK_JOURNEYS: JourneyCard[] = [
   {
-    id: '1',
-    name: 'Foundations of Faith',
-    description: 'Core beliefs, prayer, and Scripture basics for new believers',
-    totalLessons: 7,
-    category: 'Discipleship',
+    id: 'mock-salvation',
+    name: 'Salvation Journey',
+    description: 'Discovering who Jesus is and making a decision to follow Him',
+    totalLessons: 4,
+    category: 'Salvation',
     enrolledSeekers: [
-      { id: '1', name: 'Sarah Johnson', initials: 'SJ', color: '#2563eb', currentLesson: 4, maturity: 'New Believer', lastActive: '2m ago' },
-      { id: '4', name: 'James Wilson', initials: 'JW', color: '#ef4444', currentLesson: 1, maturity: 'New Believer', lastActive: '3h ago' },
+      { id: '1', name: 'Sarah Johnson', initials: 'SJ', color: '#2563eb', currentLesson: 3, maturity: 'New Believer', lastActive: '2m ago' },
+      { id: '4', name: 'James Wilson', initials: 'JW', color: '#ef4444', currentLesson: 1, maturity: 'Seeker', lastActive: '3h ago' },
     ],
   },
   {
-    id: '2',
-    name: 'Prayer Basics',
-    description: 'Learning to communicate with God through different forms of prayer',
-    totalLessons: 5,
-    category: 'Spiritual Growth',
+    id: 'mock-baptism',
+    name: 'Baptism Journey',
+    description: 'Preparing for and walking through baptism as a new believer',
+    totalLessons: 4,
+    category: 'Baptism',
     enrolledSeekers: [
-      { id: '2', name: 'Daniel Mekonnen', initials: 'DM', color: '#10b981', currentLesson: 2, maturity: 'Seeker', lastActive: '15m ago' },
+      { id: '2', name: 'Daniel Mekonnen', initials: 'DM', color: '#10b981', currentLesson: 2, maturity: 'New Believer', lastActive: '15m ago' },
     ],
   },
   {
-    id: '3',
-    name: 'Bible 101',
-    description: 'Overview of the Bible — Old and New Testament, how to read and study',
-    totalLessons: 10,
-    category: 'Discipleship',
-    enrolledSeekers: [
-      { id: '3', name: 'Maria Garcia', initials: 'MG', color: '#f59e0b', currentLesson: 8, maturity: 'Growing', lastActive: '2h ago' },
-      { id: '7', name: 'Abebe Tadesse', initials: 'AT', color: '#8b5cf6', currentLesson: 10, maturity: 'Mature', lastActive: '2d ago' },
-    ],
-  },
-  {
-    id: '4',
-    name: 'Finding Community',
-    description: 'The importance of fellowship and connecting with other believers',
-    totalLessons: 6,
+    id: 'mock-community',
+    name: 'Community Journey',
+    description: 'Finding fellowship and growing in community with other believers',
+    totalLessons: 4,
     category: 'Community',
     enrolledSeekers: [
       { id: '6', name: 'David Kim', initials: 'DK', color: '#ec4899', currentLesson: 3, maturity: 'Growing', lastActive: '1d ago' },
     ],
   },
   {
-    id: '5',
-    name: 'Who Is Jesus?',
-    description: 'An introductory journey exploring the life and teachings of Jesus',
-    totalLessons: 8,
-    category: 'Evangelism',
-    enrolledSeekers: [],
-  },
-  {
-    id: '6',
-    name: 'Understanding the Gospel',
-    description: 'What the Gospel means, why it matters, and how to share it',
-    totalLessons: 6,
-    category: 'Evangelism',
-    enrolledSeekers: [],
+    id: 'mock-growth',
+    name: 'Growth Journey',
+    description: 'Spiritual growth, discipline, and deepening maturity',
+    totalLessons: 4,
+    category: 'Growth',
+    enrolledSeekers: [
+      { id: '3', name: 'Maria Garcia', initials: 'MG', color: '#f59e0b', currentLesson: 3, maturity: 'Growing', lastActive: '2h ago' },
+      { id: '7', name: 'Abebe Tadesse', initials: 'AT', color: '#8b5cf6', currentLesson: 4, maturity: 'Mature', lastActive: '2d ago' },
+    ],
   },
 ];
 
-type FilterType = 'all' | 'Discipleship' | 'Spiritual Growth' | 'Community' | 'Evangelism';
+type FilterType = 'all' | 'Salvation' | 'Baptism' | 'Community' | 'Growth';
 
 export default function JourneysScreen() {
   const colors = useTheme();
@@ -96,7 +243,47 @@ export default function JourneysScreen() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const filteredJourneys = JOURNEYS.filter((j) => {
+  // ─── Real API data ───────────────────────────────────────────────────────
+  const [journeys, setJourneys] = useState<JourneyCard[]>(MOCK_JOURNEYS);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [usingMock, setUsingMock] = useState<boolean>(false);
+
+  const loadJourneys = async (isRefresh = false) => {
+    if (!isApiConfigured()) {
+      // No backend configured — keep the mock so the tab still looks alive.
+      setJourneys(MOCK_JOURNEYS);
+      setUsingMock(true);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+
+    const res = await JourneysAPI.list(TENANT_ID);
+    // Defensive unwrap: some endpoints double-wrap data.
+    const raw = (res as any)?.data?.data ?? res.data;
+    const records: FaithJourney[] = Array.isArray(raw) ? raw : [];
+
+    if (res.error || records.length === 0) {
+      // Empty / errored — fall back to the mock so the screen is never blank.
+      setJourneys(MOCK_JOURNEYS);
+      setUsingMock(true);
+    } else {
+      setJourneys(groupJourneys(records));
+      setUsingMock(false);
+    }
+    setLoading(false);
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    loadJourneys();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredJourneys = journeys.filter((j) => {
     const matchesFilter = filter === 'all' || j.category === filter;
     const matchesSearch =
       !searchQuery || j.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -112,13 +299,13 @@ export default function JourneysScreen() {
 
   const filters: { key: FilterType; label: string }[] = [
     { key: 'all', label: 'All' },
-    { key: 'Discipleship', label: 'Discipleship' },
-    { key: 'Evangelism', label: 'Evangelism' },
-    { key: 'Spiritual Growth', label: 'Growth' },
+    { key: 'Salvation', label: 'Salvation' },
+    { key: 'Baptism', label: 'Baptism' },
+    { key: 'Growth', label: 'Growth' },
     { key: 'Community', label: 'Community' },
   ];
 
-  const renderSeeker = (seeker: typeof JOURNEYS[0]['enrolledSeekers'][0], totalLessons: number) => {
+  const renderSeeker = (seeker: EnrolledSeeker, totalLessons: number) => {
     const progress = seeker.currentLesson / totalLessons;
     const completed = seeker.currentLesson >= totalLessons;
     const maturityColor = MaturityColors[seeker.maturity] || '#94a3b8';
@@ -159,7 +346,7 @@ export default function JourneysScreen() {
     );
   };
 
-  const renderJourney = ({ item }: { item: typeof JOURNEYS[0] }) => {
+  const renderJourney = ({ item }: { item: JourneyCard }) => {
     const isExpanded = expandedId === item.id;
     const enrolled = item.enrolledSeekers.length;
     const completedCount = item.enrolledSeekers.filter((s) => s.currentLesson >= item.totalLessons).length;
@@ -306,22 +493,47 @@ export default function JourneysScreen() {
       </View>
 
       {/* Journey List */}
-      <FlatList
-        data={sorted}
-        renderItem={renderJourney}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 + insets.bottom, gap: 12 }}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <BookOpen size={32} color={colors.mutedForeground} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No journeys found</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-              Try adjusting your search or filters
-            </Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={styles.emptyState}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={[styles.emptySubtitle, { color: colors.mutedForeground, marginTop: 8 }]}>
+            Loading journeys…
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={sorted}
+          renderItem={renderJourney}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 + insets.bottom, gap: 12 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadJourneys(true)}
+              tintColor={colors.primary}
+            />
+          }
+          ListHeaderComponent={
+            usingMock ? (
+              <View style={[styles.demoBanner, { backgroundColor: colors.secondary }]}>
+                <Text style={[styles.demoBannerText, { color: colors.mutedForeground }]}>
+                  Showing demo data — connect Supabase to load real journeys
+                </Text>
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <BookOpen size={32} color={colors.mutedForeground} />
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No journeys found</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+                Try adjusting your search or filters
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }
@@ -537,6 +749,19 @@ const styles = StyleSheet.create({
   emptyEnrolledText: {
     fontFamily: 'DMSans_500Medium',
     fontSize: 13,
+  },
+
+  // Demo banner
+  demoBanner: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  demoBannerText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 11,
   },
 
   // Empty state
