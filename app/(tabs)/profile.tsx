@@ -333,6 +333,52 @@ export default function ProfileScreen() {
               </View>
             </View>
 
+            {/* Dev-only: trigger sample celebrations. Remove before shipping. */}
+            {__DEV__ && (
+              <View style={styles.section}>
+                <TouchableOpacity
+                  style={[styles.card, { borderColor: colors.border, padding: 14, alignItems: 'center' }]}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    enqueue([
+                      {
+                        type: 'badge_earned',
+                        badgeName: 'First Steps',
+                        description: 'You completed your first action — welcome aboard!',
+                        category: 'achievement',
+                        rarity: 'common',
+                        xpReward: 50,
+                      },
+                      {
+                        type: 'level_up',
+                        newLevel: (gamProfile.level ?? 1) + 1,
+                        tier: gamProfile.tier ?? 'bronze',
+                      },
+                      {
+                        type: 'badge_earned',
+                        badgeName: 'Streak Keeper',
+                        description: 'Maintained a 7-day activity streak',
+                        category: 'streak',
+                        rarity: 'rare',
+                        xpReward: 150,
+                      },
+                      {
+                        type: 'milestone_completed',
+                        milestoneName: 'Salvation Decision',
+                      },
+                    ]);
+                  }}
+                >
+                  <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 13, color: colors.primary }}>
+                    🎉 Preview celebration queue (dev)
+                  </Text>
+                  <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: colors.mutedForeground, marginTop: 4 }}>
+                    Fires 4 sample events — tap Next to advance
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Badges */}
             {earnedBadges.length > 0 && (
               <View style={styles.section}>
