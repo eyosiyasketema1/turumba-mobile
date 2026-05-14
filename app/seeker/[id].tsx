@@ -611,15 +611,22 @@ export default function SeekerDetailScreen() {
     if (activeTab === 'ai' && id) {
       setReengLoading(true);
       GamificationAPI.getEnrollments(id as string, 'tenant-1', 'active')
-        .then(async (data) => {
-          setEnrollments(data);
-          // Fetch drips for each enrollment
+        .then(async (res) => {
+          // Unwrap api() envelope; defensively handle double-wrapped responses.
+          const raw = (res as any)?.data?.data ?? res?.data;
+          const list: AutomationEnrollment[] = Array.isArray(raw) ? raw : [];
+          setEnrollments(list);
+
+          // Fetch drips for each enrollment, unwrapping the same envelope.
           const dripsMap: Record<string, DripMessage[]> = {};
-          for (const e of data) {
+          for (const e of list) {
             try {
-              const drips = await GamificationAPI.getDrips(e.id);
-              dripsMap[e.id] = drips;
-            } catch (_) {}
+              const dripRes = await GamificationAPI.getDrips(e.id);
+              const dripsRaw = (dripRes as any)?.data?.data ?? dripRes?.data;
+              dripsMap[e.id] = Array.isArray(dripsRaw) ? dripsRaw : [];
+            } catch (_) {
+              dripsMap[e.id] = [];
+            }
           }
           setEnrollmentDrips(dripsMap);
         })
