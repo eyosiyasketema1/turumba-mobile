@@ -11,6 +11,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 import { Colors } from '@/constants/theme';
+import { CelebrationProvider } from '@/components/gamification/CelebrationContext';
 
 export const unstable_settings = {
   initialRouteName: 'index',
@@ -49,21 +50,23 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={TurumbaTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
-        <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="seeker/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="forgot-password" options={{ headerShown: false, animation: 'slide_from_right' }} />
-        <Stack.Screen name="verify-code" options={{ headerShown: false, animation: 'slide_from_right' }} />
-        <Stack.Screen name="reset-password" options={{ headerShown: false, animation: 'slide_from_right' }} />
-        <Stack.Screen name="notifications" options={{ headerShown: false }} />
-        <Stack.Screen name="privacy" options={{ headerShown: false }} />
-        <Stack.Screen name="help" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="dark" />
+      <CelebrationProvider>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="seeker/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="forgot-password" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="verify-code" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="reset-password" options={{ headerShown: false, animation: 'slide_from_right' }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="privacy" options={{ headerShown: false }} />
+          <Stack.Screen name="help" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        </Stack>
+        <StatusBar style="dark" />
+      </CelebrationProvider>
     </ThemeProvider>
   );
 }

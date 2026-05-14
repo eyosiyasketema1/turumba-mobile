@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -44,6 +45,32 @@ import XpProgressBar from '@/components/gamification/XpProgressBar';
 import TierBadge from '@/components/gamification/TierBadge';
 import StreakFlame from '@/components/gamification/StreakFlame';
 import BadgeCard from '@/components/gamification/BadgeCard';
+import StreakCalendar from '@/components/gamification/StreakCalendar';
+import { useCelebrations } from '@/components/gamification/CelebrationContext';
+import type { CelebrationEvent } from '@/components/gamification/CelebrationModal';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * The backend exposes current_streak / longest_streak / last_activity_at but
+ * not a per-day activity history. To populate the StreakCalendar visually we
+ * synthesize the most recent N days as active where N = current_streak,
+ * anchored at last_activity_at (or today if not set).
+ *
+ * Once a real activity-history endpoint exists, swap this for those records.
+ */
+function deriveActiveDays(currentStreak: number, lastActivityAt: string | null): string[] {
+  if (!currentStreak || currentStreak <= 0) return [];
+  const anchor = lastActivityAt ? new Date(lastActivityAt) : new Date();
+  if (Number.isNaN(anchor.getTime())) return [];
+  const days: string[] = [];
+  const cursor = new Date(anchor);
+  for (let i = 0; i < currentStreak; i++) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return days;
+}
 
 // ─── Mentor Profile Data ──────────────────────────────────────────────────
 
@@ -82,31 +109,96 @@ export default function ProfileScreen() {
   const [earnedBadges, setEarnedBadges] = useState<BadgeAward[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [gamLoading, setGamLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Celebration queue + refs tracking what we've already celebrated, so we
+  // only enqueue events for *new* badges / level-ups, not the existing state
+  // present on first load.
+  const { enqueue } = useCelebrations();
+  const seenBadgeIdsRef = useRef<Set<string> | null>(null);
+  const seenLevelRef = useRef<number | null>(null);
 
   // Fetch gamification data
   const ACCOUNT_ID = 'tenant-1';
   const ACTOR_ID = 'contact-2'; // Current mentor actor — swap for real user ID
 
-  useEffect(() => {
-    if (!isApiConfigured()) { setGamLoading(false); return; }
+  const loadGamification = useCallback(async (opts: { isRefresh?: boolean } = {}) => {
+    if (!isApiConfigured()) {
+      setGamLoading(false);
+      setRefreshing(false);
+      return;
+    }
 
-    Promise.allSettled([
+    if (opts.isRefresh) setRefreshing(true);
+
+    const [profileRes, summaryRes, badgesRes, lbRes] = await Promise.allSettled([
       GamificationAPI.getProfile(ACTOR_ID, ACCOUNT_ID),
       GamificationAPI.getPointsSummary(ACTOR_ID, ACCOUNT_ID),
       GamificationAPI.getAwardedBadges(ACTOR_ID, ACCOUNT_ID),
       GamificationAPI.getLeaderboard(ACCOUNT_ID, 'weekly', undefined, 5),
-    ]).then(([profileRes, summaryRes, badgesRes, lbRes]) => {
-      if (profileRes.status === 'fulfilled' && profileRes.value.data)
-        setGamProfile(profileRes.value.data);
-      if (summaryRes.status === 'fulfilled' && summaryRes.value.data)
-        setPointsSummary(summaryRes.value.data);
-      if (badgesRes.status === 'fulfilled' && badgesRes.value.data)
-        setEarnedBadges(badgesRes.value.data);
-      if (lbRes.status === 'fulfilled' && lbRes.value.data)
-        setLeaderboard(lbRes.value.data);
-      setGamLoading(false);
-    });
-  }, []);
+    ]);
+
+    const nextProfile =
+      profileRes.status === 'fulfilled' && profileRes.value.data
+        ? profileRes.value.data
+        : null;
+    const nextBadges =
+      badgesRes.status === 'fulfilled' && badgesRes.value.data
+        ? badgesRes.value.data
+        : [];
+
+    // ─── Detect new badges / level-ups and enqueue celebrations ───────────
+    const events: CelebrationEvent[] = [];
+
+    if (seenBadgeIdsRef.current === null) {
+      // First load: just record the baseline, don't celebrate existing badges.
+      seenBadgeIdsRef.current = new Set(nextBadges.map((b) => b.id));
+    } else {
+      const seen = seenBadgeIdsRef.current;
+      for (const award of nextBadges) {
+        if (!seen.has(award.id)) {
+          seen.add(award.id);
+          events.push({
+            type: 'badge_earned',
+            badgeName: award.badge.name,
+            description: award.badge.description,
+            category: award.badge.category,
+            rarity: award.badge.rarity,
+            xpReward: award.badge.xp_reward,
+          });
+        }
+      }
+    }
+
+    if (nextProfile) {
+      if (seenLevelRef.current === null) {
+        seenLevelRef.current = nextProfile.level;
+      } else if (nextProfile.level > seenLevelRef.current) {
+        // Emit one level_up event per level crossed (handles multi-level jumps).
+        for (let lvl = seenLevelRef.current + 1; lvl <= nextProfile.level; lvl++) {
+          events.push({ type: 'level_up', newLevel: lvl, tier: nextProfile.tier });
+        }
+        seenLevelRef.current = nextProfile.level;
+      }
+    }
+
+    if (events.length > 0) enqueue(events);
+
+    // ─── Commit data ──────────────────────────────────────────────────────
+    if (nextProfile) setGamProfile(nextProfile);
+    if (summaryRes.status === 'fulfilled' && summaryRes.value.data)
+      setPointsSummary(summaryRes.value.data);
+    setEarnedBadges(nextBadges);
+    if (lbRes.status === 'fulfilled' && lbRes.value.data)
+      setLeaderboard(lbRes.value.data);
+
+    setGamLoading(false);
+    setRefreshing(false);
+  }, [enqueue]);
+
+  useEffect(() => {
+    loadGamification();
+  }, [loadGamification]);
 
   const LANGUAGES = [
     { code: 'en', name: 'English', native: 'English' },
@@ -134,6 +226,13 @@ export default function ProfileScreen() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadGamification({ isRefresh: true })}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* Identity Block */}
         <View style={styles.identityBlock}>
@@ -208,6 +307,29 @@ export default function ProfileScreen() {
                     </View>
                   </View>
                 )}
+              </View>
+            </View>
+
+            {/* Streak Calendar */}
+            <View style={styles.section}>
+              <View style={gamStyles.sectionHeader}>
+                <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>
+                  STREAK
+                </Text>
+                {gamProfile.longest_streak > 0 && (
+                  <View style={gamStyles.badgeCount}>
+                    <Text style={[gamStyles.badgeCountText, { color: colors.primary }]}>
+                      Best {gamProfile.longest_streak}d
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={[styles.card, { borderColor: colors.border, padding: 14, marginTop: 10 }]}>
+                <StreakCalendar
+                  activeDays={deriveActiveDays(gamProfile.current_streak, gamProfile.last_activity_at)}
+                  weeks={12}
+                  tier={gamProfile.tier}
+                />
               </View>
             </View>
 
