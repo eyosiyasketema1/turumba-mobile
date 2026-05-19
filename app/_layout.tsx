@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, Platform, UIManager } from 'react-native';
 import 'react-native-reanimated';
+import { useEffect } from 'react';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -12,6 +13,13 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 import { Colors } from '@/constants/theme';
 import { CelebrationProvider } from '@/components/gamification/CelebrationContext';
+import { registerForPush } from '@/services/push';
+
+// Same hardcoded mentor / tenant pair used elsewhere; swap for real auth once
+// the login flow returns a real session.
+const PUSH_ACCOUNT_ID = 'tenant-1';
+const PUSH_ACTOR_ID = 'contact-2';
+const PUSH_ACTOR_TYPE = 'mentor' as const;
 
 export const unstable_settings = {
   initialRouteName: 'index',
@@ -39,6 +47,17 @@ export default function RootLayout() {
     DMSans_600SemiBold,
     DMSans_700Bold,
   });
+
+  // Register for Expo Push once the app boots. Best-effort — failures
+  // (permission denied, simulator, network) just no-op so the app keeps
+  // working without push.
+  useEffect(() => {
+    registerForPush({
+      accountId: PUSH_ACCOUNT_ID,
+      actorId: PUSH_ACTOR_ID,
+      actorType: PUSH_ACTOR_TYPE,
+    }).catch(() => {});
+  }, []);
 
   if (!fontsLoaded) {
     return (
