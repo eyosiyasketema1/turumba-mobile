@@ -616,7 +616,7 @@ export default function SeekerDetailScreen() {
   const [showReassignForm, setShowReassignForm] = useState(false);
   const [reassignSubmitted, setReassignSubmitted] = useState(false);
   const [reassignReason, setReassignReason] = useState('');
-  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' as const });
+  const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'info' }>({ visible: false, message: '', type: 'success' });
   const toastAnim = useRef(new Animated.Value(0)).current;
 
   // Re-engagement state

@@ -443,7 +443,7 @@ export default function ChatDetailScreen() {
   const [messages, setMessages] = useState(MESSAGES);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const recordingInterval = useRef<NodeJS.Timeout | null>(null);
+  const recordingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartTime = useRef<number>(0);
   const recordingRef = useRef<any>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -501,7 +501,7 @@ export default function ChatDetailScreen() {
 
   // Toast state
   const [toast, setToast] = useState<{ message: string; undoAction?: () => void; id: number } | null>(null);
-  const toastTimeout = useRef<NodeJS.Timeout | null>(null);
+  const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastAnim = useRef(new Animated.Value(0)).current;
 
   const showToast = (message: string, undoAction?: () => void) => {
